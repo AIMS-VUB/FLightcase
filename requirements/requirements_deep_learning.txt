@@ -1,0 +1,6 @@
+torch==1.13.1
+pandas==1.5.3
+monai==1.1.0
+scikit-learn==1.2.1
+tqdm==4.64.1
+nibabel==5.0.1
