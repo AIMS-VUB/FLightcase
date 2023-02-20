@@ -136,4 +136,4 @@ if __name__ == "__main__":
         local_state_dicts = [torch.load(path, map_location='cpu') for path in local_model_paths]
         new_global_state_dict = FedAvg(global_net.state_dict(), local_state_dicts)
         model_path = os.path.join(workspace_path, f'global_model_round_{fl_round}.pt')  # Overwrite model_path
-        torch.save(global_net.state_dict(), model_path)
+        torch.save(new_global_state_dict, model_path)
