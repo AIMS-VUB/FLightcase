@@ -1,5 +1,9 @@
 """
 Script for server of the federated learning network
+
+Inspiration federated learning workflow:
+- FederatedAveraging algorithm in https://arxiv.org/pdf/1602.05629.pdf
+- FL plan in https://iopscience.iop.org/article/10.1088/1361-6560/ac97d9
 """
 
 import os
@@ -55,17 +59,28 @@ def wait_for_file(file_path):
         pass
 
 
-def FedAvg(global_state_dict, local_state_dicts):
-    # Sum global and local state dicts
-    state_dict_sum = global_state_dict.copy()
-    for local_state_dict in local_state_dicts:
-        for key, value in local_state_dict.items():
-            state_dict_sum[key] = state_dict_sum[key] + local_state_dict[key]
+def weighted_avg_local_models(state_dicts_dict, size_dict):
+    """ Get weighted average of local models
 
-    # Divide each key by the number of local state dicts + 1 (the global model)
+    :param state_dicts_dict: dict, key: client ip address, value: local state dict
+    :param size_dict: dict, key: client ip address, value: dataset size
+    :return: weighted average state dict of local state dicts
+    """
+
+    n_sum = sum(size_dict.values())
+    clients = list(state_dicts_dict.keys())
+    state_dict_keys = state_dicts_dict.get(clients[0]).keys()
+
     state_dict_avg = OrderedDict()
-    for key, value in state_dict_sum.items():
-        state_dict_avg[key] = state_dict_sum[key] / (len(local_state_dicts) + 1)
+    for i, client in enumerate(clients):
+        local_state_dict = state_dicts_dict.get(client)
+        n_client = size_dict.get(client)
+        for key in state_dict_keys:
+            state_dict_contribution = (n_client * local_state_dict[key]) / n_sum
+            if i == 0:
+                state_dict_avg[key] = state_dict_contribution
+            else:
+                state_dict_avg[key] += state_dict_contribution
 
     return state_dict_avg
 
@@ -111,6 +126,17 @@ if __name__ == "__main__":
         FL_plan_dict = json.load(json_file)
     n_rounds = int(FL_plan_dict.get('n_rounds'))  # Number of FL rounds
 
+    # Wait for all clients to share their dataset size
+    print('==> Collecting all client dataset sizes...')
+    client_dataset_size_dict = {}
+    for client_ip_address in client_credentials_dict.keys():
+        client_dataset_txt_path = os.path.join(workspace_path, f'{client_ip_address}_dataset_size.txt')
+        wait_for_file(client_dataset_txt_path.replace('.txt', '_transfer_completed.txt'))
+        with open(client_dataset_txt_path, 'r') as file:
+            n_client = int(file.read())
+            client_dataset_size_dict.update({client_ip_address: n_client})
+            print(f'     ==> {client_ip_address}: n = {n_client}')
+
     # Load initial network and save
     net_architecture = DenseNet(3, 1, 1)
     global_net = get_weights(net_architecture, initial_state_dict_path)
@@ -131,10 +157,11 @@ if __name__ == "__main__":
             wait_for_file(txt_file_path)
 
         # Create new global model by combining local models
+        # Note: here, all clients are considered, not a random set of them as in https://arxiv.org/pdf/1602.05629.pdf
         print('==> Combining local model weights and saving...')
-        local_model_paths = [os.path.join(workspace_path, f'model_{ip_address}_round_{fl_round}.pt')
-                             for ip_address in client_credentials_dict.keys()]
-        local_state_dicts = [torch.load(path, map_location='cpu') for path in local_model_paths]
-        new_global_state_dict = FedAvg(global_net.state_dict(), local_state_dicts)
+        local_model_paths_dict = {ip_address: os.path.join(workspace_path, f'model_{ip_address}_round_{fl_round}.pt')
+                                  for ip_address in client_credentials_dict.keys()}
+        local_state_dicts_dict = {k: torch.load(v, map_location='cpu') for k, v in local_model_paths_dict.items()}
+        new_global_state_dict = weighted_avg_local_models(local_state_dicts_dict, client_dataset_size_dict)
         model_path = os.path.join(workspace_path, f'global_model_round_{fl_round}.pt')  # Overwrite model_path
         torch.save(new_global_state_dict, model_path)

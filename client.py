@@ -1,5 +1,9 @@
 """
 Script for clients of the federated learning network
+
+Inspiration federated learning workflow:
+- FederatedAveraging algorithm in https://arxiv.org/pdf/1602.05629.pdf
+- FL plan in https://iopscience.iop.org/article/10.1088/1361-6560/ac97d9
 """
 
 import os
@@ -119,6 +123,14 @@ if __name__ == "__main__":
     train_fraction = float(FL_plan_dict.get('train_fraction'))      # Fraction of data for training
     val_fraction = float(FL_plan_dict.get('val_fraction'))          # Fraction of data for validation
     test_fraction = float(FL_plan_dict.get('test_fraction'))        # Fraction of data for testing
+
+    # Send dataset size to server
+    print('==> Send dataset size to server...')
+    dataset_size_txt_path = os.path.join(workspace_path, f'{client_ip_address}_dataset_size.txt')
+    with open(dataset_size_txt_path, 'w') as file:
+        file.write(str(df.shape[0]))
+
+    send_file(server_ip_address, server_username, server_password, dataset_size_txt_path)
 
     # General deep learning settings
     criterion = nn.L1Loss()
