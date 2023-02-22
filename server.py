@@ -110,8 +110,6 @@ if __name__ == "__main__":
         os.makedirs(workspace_path)
 
     # Copy FL plan in workspace folder
-    print(FL_plan_path)
-    print(os.path.join(workspace_path, "FL_plan.json"))
     os.system(f'cp {FL_plan_path} {os.path.join(workspace_path, "FL_plan.json")}')
 
     # Send FL plan to all clients
