@@ -46,12 +46,12 @@ def send_file(remote_ip_address, username, password, file_path):
     scp.put(txt_file_path, txt_file_path)
 
 
-def wait_for_clients(local_model_paths):
-    """ Wait until all clients have shared their local model with the server
+def wait_for_file(file_path):
+    """ This function waits for a file path to exist
 
-    :param local_model_paths: list, expected location (path) of each local model on the server
+    :param file_path: str, path to file
     """
-    while not sum([os.path.exists(path) for path in local_model_paths]) == len(local_model_paths):
+    while not os.path.exists(file_path):
         pass
 
 
@@ -127,7 +127,8 @@ if __name__ == "__main__":
         print('==> Model shared with all clients. Waiting for updated client models...')
         txt_file_paths = [os.path.join(workspace_path, f'model_{ip_address}_round_{fl_round}_transfer_completed.txt')
                           for ip_address in client_credentials_dict.keys()]
-        wait_for_clients(txt_file_paths)
+        for txt_file_path in txt_file_paths:
+            wait_for_file(txt_file_path)
 
         # Create new global model by combining local models
         print('==> Combining local model weights and saving...')
