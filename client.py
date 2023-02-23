@@ -177,8 +177,17 @@ if __name__ == "__main__":
 
         # Train
         print('==> Start training...')
-        best_model_path = train(n_epochs, device, train_loader, val_loader, optimizer, global_net,
-                                criterion, scheduler, state_dict_folder_path)
+        best_model_path, train_loss_list, val_loss_list = train(n_epochs, device, train_loader, val_loader, optimizer,
+                                                                global_net, criterion, scheduler,
+                                                                state_dict_folder_path)
+
+        print('==> Send training results to server...')
+        train_df = pd.DataFrame({'fl_round': [fl_round]*n_epochs,
+                                 'train_loss': train_loss_list,
+                                 'val_loss': val_loss_list})
+        train_df_path = os.path.join(workspace_path, f'train_results_{client_ip_address}_round_{fl_round}.csv')
+        train_df.to_csv(train_df_path, index=False)
+        send_file(server_ip_address, server_username, server_password, train_df_path)
 
         # Copy the best model in the state dict folder to the workspace folder
         local_model_path = os.path.join(workspace_path, f'model_{client_ip_address}_round_{fl_round}.pt')

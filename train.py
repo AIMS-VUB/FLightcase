@@ -49,6 +49,8 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
     best_loss = 1e9
     n_worse_epochs = 0
     best_model_path = None
+    train_loss_list = []
+    val_loss_list = []
 
     for epoch in range(n_epochs):
         # Initialize variables
@@ -113,10 +115,14 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
         # Get learning rate (might have changed during training)
         lr = optimizer.param_groups[0]['lr']
 
+        # Add loss to list
+        train_loss_list.append(train_loss)
+        val_loss_list.append(val_loss)
+
         # Epoch print message
         print_epoch_message(epoch, lr, train_loss, train_mae, val_loss, val_mae, best_loss, n_worse_epochs)
 
-    return best_model_path
+    return best_model_path, train_loss_list, val_loss_list
 
 
 if __name__ == "__main__":
