@@ -8,6 +8,7 @@ Inspiration federated learning workflow:
 
 import os
 import json
+import random
 import torch
 import argparse
 import paramiko
@@ -85,6 +86,22 @@ def weighted_avg_local_models(state_dicts_dict, size_dict):
     return state_dict_avg
 
 
+def get_n_random_pairs_from_dict(input_dict, n, random_seed=None):
+    """ Sample n random pairs from a dict without replacement
+
+    :param input_dict: dict
+    :param n: int, number of pairs to extract
+    :param random_seed: int, random seed
+    :return: dict with n pairs from input dict
+    """
+
+    if random_seed is not None:
+        random.seed(random_seed)
+    output_dict = {k: input_dict.get(k) for k in random.sample(input_dict.keys(), n)}
+
+    return output_dict
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog='Server',
@@ -122,7 +139,8 @@ if __name__ == "__main__":
     # Extract FL plan
     with open(FL_plan_path, 'r') as json_file:
         FL_plan_dict = json.load(json_file)
-    n_rounds = int(FL_plan_dict.get('n_rounds'))  # Number of FL rounds
+    n_rounds = int(FL_plan_dict.get('n_rounds'))                            # Number of FL rounds
+    n_clients_set = FL_plan_dict.get('n_clients_set')                       # Number of clients in set for averaging
 
     # Wait for all clients to share their dataset size
     print('==> Collecting all client dataset sizes...')
@@ -155,11 +173,15 @@ if __name__ == "__main__":
             wait_for_file(txt_file_path)
 
         # Create new global model by combining local models
-        # Note: here, all clients are considered, not a random set of them as in https://arxiv.org/pdf/1602.05629.pdf
         print('==> Combining local model weights and saving...')
         local_model_paths_dict = {ip_address: os.path.join(workspace_path, f'model_{ip_address}_round_{fl_round}.pt')
                                   for ip_address in client_credentials_dict.keys()}
         local_state_dicts_dict = {k: torch.load(v, map_location='cpu') for k, v in local_model_paths_dict.items()}
+        if n_clients_set is not None:
+            seed = 42
+            local_state_dicts_dict = get_n_random_pairs_from_dict(local_state_dicts_dict, n_clients_set, seed)
+            client_dataset_size_dict = get_n_random_pairs_from_dict(client_dataset_size_dict, n_clients_set, seed)
+            print(f'    ==> Clients in sample: {list(local_state_dicts_dict.keys())}')
         new_global_state_dict = weighted_avg_local_models(local_state_dicts_dict, client_dataset_size_dict)
         model_path = os.path.join(workspace_path, f'global_model_round_{fl_round}.pt')  # Overwrite model_path
         torch.save(new_global_state_dict, model_path)
