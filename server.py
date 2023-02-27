@@ -178,9 +178,8 @@ if __name__ == "__main__":
                                   for ip_address in client_credentials_dict.keys()}
         local_state_dicts_dict = {k: torch.load(v, map_location='cpu') for k, v in local_model_paths_dict.items()}
         if n_clients_set is not None:
-            seed = 42
-            local_state_dicts_dict = get_n_random_pairs_from_dict(local_state_dicts_dict, n_clients_set, seed)
-            client_dataset_size_dict = get_n_random_pairs_from_dict(client_dataset_size_dict, n_clients_set, seed)
+            local_state_dicts_dict = get_n_random_pairs_from_dict(local_state_dicts_dict, n_clients_set)
+            client_dataset_size_dict = get_n_random_pairs_from_dict(client_dataset_size_dict, n_clients_set)
             print(f'    ==> Clients in sample: {list(local_state_dicts_dict.keys())}')
         new_global_state_dict = weighted_avg_local_models(local_state_dicts_dict, client_dataset_size_dict)
         model_path = os.path.join(workspace_path, f'global_model_round_{fl_round}.pt')  # Overwrite model_path
