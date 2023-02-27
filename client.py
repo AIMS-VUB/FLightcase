@@ -8,6 +8,8 @@ Inspiration federated learning workflow:
 
 import os
 import json
+
+import numpy as np
 import torch
 import argparse
 import paramiko
@@ -123,6 +125,7 @@ if __name__ == "__main__":
     train_fraction = float(FL_plan_dict.get('train_fraction'))      # Fraction of data for training
     val_fraction = float(FL_plan_dict.get('val_fraction'))          # Fraction of data for validation
     test_fraction = float(FL_plan_dict.get('test_fraction'))        # Fraction of data for testing
+    n_splits = int(FL_plan_dict.get('n_splits'))                    # Number of data splits per fl round
 
     # Send dataset size to server
     print('==> Send dataset size to server...')
@@ -170,28 +173,44 @@ if __name__ == "__main__":
         # Deep learning settings per FL round
         optimizer = torch.optim.Adam(global_net.parameters(), lr=lr)
         scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=patience)
-        train_df, val_df, test_df = split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction)
-        train_loader = get_data_loader(train_df, 'train', colnames_dict, batch_size=batch_size)
-        val_loader = get_data_loader(val_df, 'validation', colnames_dict, batch_size=batch_size)
-        test_loader = get_data_loader(val_df, 'test', colnames_dict, batch_size=batch_size)
 
-        # Train
-        print('==> Start training...')
-        best_model_path, train_loss_list, val_loss_list = train(n_epochs, device, train_loader, val_loader, optimizer,
-                                                                global_net, criterion, scheduler,
-                                                                state_dict_folder_path)
+        # Initiate variables
+        best_model_path_across_splits = None
+        local_model_path = None
+        best_val_loss = np.inf
+        random_states = range(n_splits*fl_round, n_splits*fl_round + n_splits)  # Assure random state is never repeated
+        for split_i, random_state in enumerate(random_states):
+            print(f'==> Split {split_i}, random state {random_state}...')
+            # Split data
+            train_df, val_df, test_df = split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction,
+                                                   random_state=random_state)
+            train_loader = get_data_loader(train_df, 'train', colnames_dict, batch_size=batch_size)
+            val_loader = get_data_loader(val_df, 'validation', colnames_dict, batch_size=batch_size)
+            test_loader = get_data_loader(val_df, 'test', colnames_dict, batch_size=batch_size)
 
-        print('==> Send training results to server...')
-        train_df = pd.DataFrame({'fl_round': [fl_round]*n_epochs,
-                                 'train_loss': train_loss_list,
-                                 'val_loss': val_loss_list})
-        train_df_path = os.path.join(workspace_path, f'train_results_{client_ip_address}_round_{fl_round}.csv')
-        train_df.to_csv(train_df_path, index=False)
-        send_file(server_ip_address, server_username, server_password, train_df_path)
+            # Train
+            print('==> Start training...')
+            best_model_path, train_loss_list, val_loss_list = train(n_epochs, device, train_loader, val_loader,
+                                                                    optimizer, global_net, criterion, scheduler,
+                                                                    state_dict_folder_path)
+
+            print('==> Send training results to server...')
+            train_df = pd.DataFrame({'fl_round': [fl_round]*n_epochs,
+                                     'train_loss': train_loss_list,
+                                     'val_loss': val_loss_list})
+            train_df_path = os.path.join(
+                workspace_path, f'train_results_{client_ip_address}_round_{fl_round}_random_state_{random_state}.csv'
+            )
+            train_df.to_csv(train_df_path, index=False)
+            send_file(server_ip_address, server_username, server_password, train_df_path)
+
+            # Get best validation loss across all splits
+            if min(val_loss_list) < best_val_loss:
+                best_model_path_across_splits = best_model_path
 
         # Copy the best model in the state dict folder to the workspace folder
         local_model_path = os.path.join(workspace_path, f'model_{client_ip_address}_round_{fl_round}.pt')
-        os.system(f'cp {best_model_path} {local_model_path}')
+        os.system(f'cp {best_model_path_across_splits} {local_model_path}')
 
         # Send to server
         print('==> Send best local model to server ...')
