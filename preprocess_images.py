@@ -7,7 +7,6 @@ import os
 import sys
 import pathlib
 import argparse
-import warnings
 import numpy as np
 import nibabel as nib
 from matplotlib.image import imsave
