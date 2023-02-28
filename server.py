@@ -184,3 +184,11 @@ if __name__ == "__main__":
         new_global_state_dict = weighted_avg_local_models(local_state_dicts_dict, client_dataset_size_dict)
         model_path = os.path.join(workspace_path, f'global_model_round_{fl_round}.pt')  # Overwrite model_path
         torch.save(new_global_state_dict, model_path)
+
+    # Copy final model path and send to clients
+    final_model_path = os.path.join(workspace_path, "final_model.pt")
+    os.system(f'cp {model_path} {final_model_path}')
+    print('==> Sending final model to all clients...')
+    for ip_address, credentials in client_credentials_dict.items():
+        print(f'     ==> Sending to {ip_address}')
+        send_file(ip_address, credentials.get('username'), credentials.get('password'), final_model_path)

@@ -17,9 +17,11 @@ import pandas as pd
 import torch.nn as nn
 from scp import SCPClient
 from monai.networks.nets import DenseNet
+from sklearn.metrics import mean_absolute_error
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from DL_utils.data import get_data_loader, split_data
 from DL_utils.model import get_weights
+from DL_utils.evaluation import evaluate
 from train import train
 
 
@@ -138,6 +140,8 @@ if __name__ == "__main__":
     # General deep learning settings
     criterion = nn.L1Loss()
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    net_architecture = DenseNet(3, 1, 1)
+    test_loader = None
 
     # Start federated learning
     for fl_round in range(n_rounds):
@@ -160,7 +164,6 @@ if __name__ == "__main__":
             os.mkdir(state_dict_folder_path)
 
         # Load global network
-        net_architecture = DenseNet(3, 1, 1)
         global_net = get_weights(net_architecture, global_model_path)
         if transfer_learning:
             # Freeze all weights in the network
@@ -216,3 +219,17 @@ if __name__ == "__main__":
         # Send to server
         print('==> Send best local model to server ...')
         send_file(server_ip_address, server_username, server_password, local_model_path)
+
+    # Test final model
+    print('==> Waiting for final model...')
+    final_model_path = os.path.join(workspace_path, 'final_model.pt')
+    wait_for_file(final_model_path.replace('final_model.pt', 'final_model_transfer_completed.txt'))
+    print('==> Testing final model...')
+    global_net = get_weights(net_architecture, final_model_path)
+    test_loss, true_labels_test, pred_labels_test = evaluate(global_net, test_loader, criterion, device, 'test')
+    test_mae = mean_absolute_error(true_labels_test, pred_labels_test)
+    print('==> Sending test results to server...')
+    test_df = pd.DataFrame({'test_loss': [test_loss], 'test_mae': [test_mae]})
+    test_df_path = os.path.join(workspace_path, f'test_results_{client_ip_address}.csv')
+    test_df.to_csv(test_df_path, index=False)
+    send_file(server_ip_address, server_username, server_password, test_df_path)
