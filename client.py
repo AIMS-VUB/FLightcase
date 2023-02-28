@@ -182,8 +182,9 @@ if __name__ == "__main__":
         for split_i, random_state in enumerate(random_states):
             print(f'==> Split {split_i}, random state {random_state}...')
             # Split data
+            # Note: Fix train_test_random_state to assure test data is always the same
             train_df, val_df, test_df = split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction,
-                                                   random_state=random_state)
+                                                   train_test_random_state=42, train_val_random_state=random_state)
             train_loader = get_data_loader(train_df, 'train', colnames_dict, batch_size=batch_size)
             val_loader = get_data_loader(val_df, 'validation', colnames_dict, batch_size=batch_size)
             test_loader = get_data_loader(val_df, 'test', colnames_dict, batch_size=batch_size)

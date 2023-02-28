@@ -39,7 +39,8 @@ class DataSet(Dataset):
         return img_tensor, label
 
 
-def split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction, output_root_path=None, random_state=42):
+def split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction, output_root_path=None,
+               train_test_random_state=42, train_val_random_state=42):
     """ Create train, validation and test dataframes
 
     :param df: pd DataFrame
@@ -48,7 +49,8 @@ def split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction, o
     :param val_fraction: float, fraction of the dataset for validation
     :param test_fraction: float, fraction of the dataset for testing
     :param output_root_path: str, path to output root directory
-    :param random_state: int, random state for the split
+    :param train_test_random_state: int, random state for split of total data in train and test data
+    :param train_val_random_state: int, random state for split of train data in train and val data
     :return: dict, paths to train, validation and test dataframes
     """
 
@@ -59,9 +61,9 @@ def split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction, o
     subject_ids = df[colnames_dict.get('id')]
 
     # Split in train, test and validation
-    train_ids, test_ids = train_test_split(subject_ids, random_state=random_state,
+    train_ids, test_ids = train_test_split(subject_ids, random_state=train_test_random_state,
                                            test_size=test_fraction)
-    train_ids, val_ids = train_test_split(train_ids, random_state=random_state,
+    train_ids, val_ids = train_test_split(train_ids, random_state=train_val_random_state,
                                           test_size=val_fraction/(train_fraction + val_fraction))
 
     # Extract dataframes
