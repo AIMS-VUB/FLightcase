@@ -114,7 +114,7 @@ if __name__ == "__main__":
         description = 'This program preprocesses T1w images'
     )
     parser.add_argument('--dataset_root_path', type=str, help='Absolute path to dataset root', required=True)
-    parser.add_argument('--use_gpu', type=str, default=True, help='Use GPU?')
+    parser.add_argument('--use_gpu', action='store_true', help='Use GPU?')
     parser.add_argument('--preprocessing_name', type=str, required=True, help='Preprocessing pipeline description')
     parser.add_argument('--skull_strip', action='store_true', help='Perform skull-stripping?')
 
