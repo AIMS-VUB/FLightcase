@@ -24,7 +24,7 @@ def evaluate(net, data_loader, criterion, device, eval_type, print_message=False
     pred_label_list = []
 
     with torch.no_grad():
-        net.eval()
+        net.eval().to(device)
         for img, label in data_loader:
             # Send to device
             img = img.to(device)
