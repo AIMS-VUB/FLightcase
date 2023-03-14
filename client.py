@@ -182,6 +182,7 @@ if __name__ == "__main__":
         local_model_path = None
         best_val_loss = np.inf
         random_states = range(n_splits*fl_round, n_splits*fl_round + n_splits)  # Assure random state is never repeated
+        train_results_df = pd.DataFrame()
         for split_i, random_state in enumerate(random_states):
             print(f'==> Split {split_i}, random state {random_state}...')
             # Split data
@@ -198,19 +199,23 @@ if __name__ == "__main__":
                                                                     optimizer, global_net, criterion, scheduler,
                                                                     state_dict_folder_path)
 
-            print('==> Send training results to server...')
-            train_results_df = pd.DataFrame({'fl_round': [fl_round]*n_epochs,
-                                             'train_loss': train_loss_list,
-                                             'val_loss': val_loss_list})
-            train_results_df_path = os.path.join(
-                workspace_path, f'train_results_{client_ip_address}_round_{fl_round}_random_state_{random_state}.csv'
-            )
-            train_results_df.to_csv(train_results_df_path, index=False)
-            send_file(server_ip_address, server_username, server_password, train_results_df_path)
+            train_results_df_i = pd.DataFrame({'random_state': [random_state]*n_epochs,
+                                               'fl_round': [fl_round]*n_epochs,
+                                               'epoch': range(n_epochs),
+                                               'train_loss': train_loss_list,
+                                               'val_loss': val_loss_list})
+            train_results_df = pd.concat([train_results_df, train_results_df_i], axis=0)
 
             # Get best validation loss across all splits
             if min(val_loss_list) < best_val_loss:
                 best_model_path_across_splits = best_model_path
+
+        print('==> Send training results to server...')
+        train_results_df_path = os.path.join(
+            workspace_path, f'train_results_{client_ip_address}_round_{fl_round}.csv'
+        )
+        train_results_df.to_csv(train_results_df_path, index=False)
+        send_file(server_ip_address, server_username, server_password, train_results_df_path)
 
         # Copy the best model in the state dict folder to the workspace folder
         local_model_path = os.path.join(workspace_path, f'model_{client_ip_address}_round_{fl_round}.pt')
