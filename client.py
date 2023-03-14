@@ -199,14 +199,14 @@ if __name__ == "__main__":
                                                                     state_dict_folder_path)
 
             print('==> Send training results to server...')
-            train_df = pd.DataFrame({'fl_round': [fl_round]*n_epochs,
-                                     'train_loss': train_loss_list,
-                                     'val_loss': val_loss_list})
-            train_df_path = os.path.join(
+            train_results_df = pd.DataFrame({'fl_round': [fl_round]*n_epochs,
+                                             'train_loss': train_loss_list,
+                                             'val_loss': val_loss_list})
+            train_results_df_path = os.path.join(
                 workspace_path, f'train_results_{client_ip_address}_round_{fl_round}_random_state_{random_state}.csv'
             )
-            train_df.to_csv(train_df_path, index=False)
-            send_file(server_ip_address, server_username, server_password, train_df_path)
+            train_results_df.to_csv(train_results_df_path, index=False)
+            send_file(server_ip_address, server_username, server_password, train_results_df_path)
 
             # Get best validation loss across all splits
             if min(val_loss_list) < best_val_loss:
