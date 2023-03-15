@@ -8,7 +8,6 @@ Inspiration federated learning workflow:
 
 import os
 import json
-
 import numpy as np
 import torch
 import argparse
@@ -18,7 +17,6 @@ import torch.nn as nn
 from scp import SCPClient
 from monai.networks.nets import DenseNet
 from sklearn.metrics import mean_absolute_error
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 from DL_utils.data import get_data_loader, split_data
 from DL_utils.model import get_weights
 from DL_utils.evaluation import evaluate
@@ -63,13 +61,24 @@ def send_file(remote_ip_address, username, password, file_path):
     scp.put(txt_file_path, txt_file_path)
 
 
-def wait_for_file(file_path):
+def wait_for_file(file_path, stop_with_stop_file = False):
     """ This function waits for a file path to exist
 
     :param file_path: str, path to file
+    :param stop_with_stop_file: bool, stop when "stop_training.txt" is present in the same directory?
     """
+
+    stop_file_present = False
     while not os.path.exists(file_path):
-        pass
+        if os.path.exists(os.path.join(os.path.dirname(file_path), 'stop_training.txt')):
+            if stop_with_stop_file:
+                stop_file_present = True
+                break
+            else:
+                pass
+        else:
+            pass
+    return stop_file_present
 
 
 if __name__ == "__main__":
@@ -125,9 +134,6 @@ if __name__ == "__main__":
     n_rounds = int(FL_plan_dict.get('n_rounds'))                    # Number of FL rounds
     n_epochs = int(FL_plan_dict.get('n_epochs'))                    # Number of epochs per FL round
     transfer_learning = FL_plan_dict.get('transfer_learning')       # Only update FC layer?')
-    lr = float(FL_plan_dict.get('lr'))                              # Learning rate
-    patience = int(FL_plan_dict.get('patience'))                    # N epochs without loss reduction before reducing lr
-    lr_reduce_factor = float(FL_plan_dict.get('lr_reduce_factor'))  # Factor by which to reduce LR on Plateau
     batch_size = int(FL_plan_dict.get('batch_size'))                # Batch size for the data loaders
     train_fraction = float(FL_plan_dict.get('train_fraction'))      # Fraction of data for training
     val_fraction = float(FL_plan_dict.get('val_fraction'))          # Fraction of data for validation
@@ -151,6 +157,18 @@ if __name__ == "__main__":
     # Start federated learning
     for fl_round in range(n_rounds):
         print(f'\n*****************\nRound {fl_round}\n*****************\n')
+
+        # Wait for FL plan with learning rate for this round
+        print('==> Waiting for learning rate for this round...')
+        FL_plan_path = os.path.join(workspace_path, f'FL_plan_round_{fl_round}.json')
+        stop_file_present = wait_for_file(FL_plan_path.replace('.json', '_transfer_completed.txt'),
+                                          stop_with_stop_file=True)
+        if stop_file_present:
+            break
+        with open(FL_plan_path, 'r') as json_file:
+            FL_plan_dict = json.load(json_file)
+        lr = float(FL_plan_dict.get('lr'))
+
         # Wait for global model to arrive
         print('==> Waiting for global model to arrive...')
         if fl_round == 0:
@@ -180,7 +198,6 @@ if __name__ == "__main__":
 
         # Deep learning settings per FL round
         optimizer = torch.optim.Adam(global_net.parameters(), lr=lr)
-        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=patience)
 
         # Initiate variables
         best_model_path_across_splits = None
@@ -201,7 +218,7 @@ if __name__ == "__main__":
             # Train
             print('==> Start training...')
             best_model_path, train_loss_list, val_loss_list = train(n_epochs, device, train_loader, val_loader,
-                                                                    optimizer, global_net, criterion, scheduler,
+                                                                    optimizer, global_net, criterion, None,
                                                                     state_dict_folder_path)
 
             train_results_df_i = pd.DataFrame({'random_state': [random_state]*n_epochs,

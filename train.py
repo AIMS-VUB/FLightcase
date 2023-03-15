@@ -96,7 +96,8 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
         # Validation
         val_loss, val_true_label_list, val_pred_label_list = evaluate(net, val_loader, criterion, device, 'validation')
         val_mae = mean_absolute_error(val_true_label_list, val_pred_label_list)
-        scheduler.step(val_loss)
+        if scheduler is not None:
+            scheduler.step(val_loss)
 
         # Evaluate whether loss is lower.
         # - If lower, save state dict and reset number of bad epochs
