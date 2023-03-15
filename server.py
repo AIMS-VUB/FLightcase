@@ -15,6 +15,7 @@ import paramiko
 import warnings
 import numpy as np
 import pandas as pd
+import datetime as dt
 from scp import SCPClient
 from collections import OrderedDict
 from monai.networks.nets import DenseNet
@@ -182,6 +183,7 @@ if __name__ == "__main__":
     # Start federated learning
     for fl_round in range(n_rounds):
         print(f'\n*****************\nRound {fl_round}\n*****************\n')
+        round_start_time = dt.datetime.now()
 
         # Save FL plan with learning rate from previous round (or initial lr) and send to all clients
         print(f'==> Sending learning rate for this round to all clients...')
@@ -250,6 +252,12 @@ if __name__ == "__main__":
                 break
         print(f'     ==> lr reduction counter: {counter_lr_red}')
         print(f'     ==> lr stop counter: {counter_stop}')
+
+        # Time tracking
+        round_stop_time = dt.datetime.now()
+        round_duration = round_stop_time - round_start_time
+        ETA = (round_stop_time + round_duration * (n_rounds - fl_round - 1)).strftime('%Y/%m/%d, %H:%M:%S')
+        print(f'Round time: {round_duration / 60} min || ETA: {ETA}')
 
     # Copy final model path and send to clients
     final_model_path = os.path.join(workspace_path, "final_model.pt")
