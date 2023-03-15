@@ -12,10 +12,14 @@ import random
 import torch
 import argparse
 import paramiko
+import warnings
 from scp import SCPClient
 from collections import OrderedDict
 from monai.networks.nets import DenseNet
 from DL_utils.model import get_weights
+
+# Filter deprecation warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # Suppress printing of paramiko info
 # Source: https://stackoverflow.com/questions/340341/suppressing-output-of-paramiko-sshclient-class
