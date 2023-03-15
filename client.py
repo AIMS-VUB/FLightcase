@@ -24,6 +24,11 @@ from DL_utils.model import get_weights
 from DL_utils.evaluation import evaluate
 from train import train
 
+# Suppress printing of paramiko info
+# Source: https://stackoverflow.com/questions/340341/suppressing-output-of-paramiko-sshclient-class
+logger = paramiko.util.logging.getLogger()
+logger.setLevel(paramiko.util.logging.WARN)
+
 
 def createSSHClient(server, port, user, password):
     """

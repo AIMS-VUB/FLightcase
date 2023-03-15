@@ -17,6 +17,11 @@ from collections import OrderedDict
 from monai.networks.nets import DenseNet
 from DL_utils.model import get_weights
 
+# Suppress printing of paramiko info
+# Source: https://stackoverflow.com/questions/340341/suppressing-output-of-paramiko-sshclient-class
+logger = paramiko.util.logging.getLogger()
+logger.setLevel(paramiko.util.logging.WARN)
+
 
 def createSSHClient(server, port, user, password):
     """
