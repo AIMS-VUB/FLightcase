@@ -230,6 +230,7 @@ if __name__ == "__main__":
 
             # Get best validation loss across all splits
             if min(val_loss_list) < best_val_loss:
+                best_val_loss = min(val_loss_list)
                 best_model_path_across_splits = best_model_path
 
         print('==> Send training results to server...')
