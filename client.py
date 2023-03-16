@@ -8,6 +8,7 @@ Inspiration federated learning workflow:
 
 import os
 import json
+import numpy as np
 import torch
 import argparse
 import paramiko
@@ -15,10 +16,16 @@ import pandas as pd
 import torch.nn as nn
 from scp import SCPClient
 from monai.networks.nets import DenseNet
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from sklearn.metrics import mean_absolute_error
 from DL_utils.data import get_data_loader, split_data
 from DL_utils.model import get_weights
+from DL_utils.evaluation import evaluate
 from train import train
+
+# Suppress printing of paramiko info
+# Source: https://stackoverflow.com/questions/340341/suppressing-output-of-paramiko-sshclient-class
+logger = paramiko.util.logging.getLogger()
+logger.setLevel(paramiko.util.logging.WARN)
 
 
 def createSSHClient(server, port, user, password):
@@ -54,13 +61,24 @@ def send_file(remote_ip_address, username, password, file_path):
     scp.put(txt_file_path, txt_file_path)
 
 
-def wait_for_file(file_path):
+def wait_for_file(file_path, stop_with_stop_file = False):
     """ This function waits for a file path to exist
 
     :param file_path: str, path to file
+    :param stop_with_stop_file: bool, stop when "stop_training.txt" is present in the same directory?
     """
+
+    stop_file_present = False
     while not os.path.exists(file_path):
-        pass
+        if os.path.exists(os.path.join(os.path.dirname(file_path), 'stop_training.txt')):
+            if stop_with_stop_file:
+                stop_file_present = True
+                break
+            else:
+                pass
+        else:
+            pass
+    return stop_file_present
 
 
 if __name__ == "__main__":
@@ -116,13 +134,11 @@ if __name__ == "__main__":
     n_rounds = int(FL_plan_dict.get('n_rounds'))                    # Number of FL rounds
     n_epochs = int(FL_plan_dict.get('n_epochs'))                    # Number of epochs per FL round
     transfer_learning = FL_plan_dict.get('transfer_learning')       # Only update FC layer?')
-    lr = float(FL_plan_dict.get('lr'))                              # Learning rate
-    patience = int(FL_plan_dict.get('patience'))                    # N epochs without loss reduction before reducing lr
-    lr_reduce_factor = float(FL_plan_dict.get('lr_reduce_factor'))  # Factor by which to reduce LR on Plateau
     batch_size = int(FL_plan_dict.get('batch_size'))                # Batch size for the data loaders
     train_fraction = float(FL_plan_dict.get('train_fraction'))      # Fraction of data for training
     val_fraction = float(FL_plan_dict.get('val_fraction'))          # Fraction of data for validation
     test_fraction = float(FL_plan_dict.get('test_fraction'))        # Fraction of data for testing
+    n_splits = int(FL_plan_dict.get('n_splits'))                    # Number of data splits per fl round
 
     # Send dataset size to server
     print('==> Send dataset size to server...')
@@ -135,10 +151,24 @@ if __name__ == "__main__":
     # General deep learning settings
     criterion = nn.L1Loss()
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    net_architecture = DenseNet(3, 1, 1)
+    test_loader = None
 
     # Start federated learning
     for fl_round in range(n_rounds):
         print(f'\n*****************\nRound {fl_round}\n*****************\n')
+
+        # Wait for FL plan with learning rate for this round
+        print('==> Waiting for learning rate for this round...')
+        FL_plan_path = os.path.join(workspace_path, f'FL_plan_round_{fl_round}.json')
+        stop_file_present = wait_for_file(FL_plan_path.replace('.json', '_transfer_completed.txt'),
+                                          stop_with_stop_file=True)
+        if stop_file_present:
+            break
+        with open(FL_plan_path, 'r') as json_file:
+            FL_plan_dict = json.load(json_file)
+        lr = float(FL_plan_dict.get('lr'))
+
         # Wait for global model to arrive
         print('==> Waiting for global model to arrive...')
         if fl_round == 0:
@@ -157,7 +187,6 @@ if __name__ == "__main__":
             os.mkdir(state_dict_folder_path)
 
         # Load global network
-        net_architecture = DenseNet(3, 1, 1)
         global_net = get_weights(net_architecture, global_model_path)
         if transfer_learning:
             # Freeze all weights in the network
@@ -169,21 +198,65 @@ if __name__ == "__main__":
 
         # Deep learning settings per FL round
         optimizer = torch.optim.Adam(global_net.parameters(), lr=lr)
-        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=patience)
-        train_df, val_df, test_df = split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction)
-        train_loader = get_data_loader(train_df, 'train', colnames_dict, batch_size=batch_size)
-        val_loader = get_data_loader(val_df, 'validation', colnames_dict, batch_size=batch_size)
-        test_loader = get_data_loader(val_df, 'test', colnames_dict, batch_size=batch_size)
 
-        # Train
-        print('==> Start training...')
-        best_model_path = train(n_epochs, device, train_loader, val_loader, optimizer, global_net,
-                                criterion, scheduler, state_dict_folder_path)
+        # Initiate variables
+        best_model_path_across_splits = None
+        local_model_path = None
+        best_val_loss = np.inf
+        random_states = range(n_splits*fl_round, n_splits*fl_round + n_splits)  # Assure random state is never repeated
+        train_results_df = pd.DataFrame()
+        for split_i, random_state in enumerate(random_states):
+            print(f'==> Split {split_i}, random state {random_state}...')
+            # Split data
+            # Note: Fix train_test_random_state to assure test data is always the same
+            train_df, val_df, test_df = split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction,
+                                                   train_test_random_state=42, train_val_random_state=random_state)
+            train_loader = get_data_loader(train_df, 'train', colnames_dict, batch_size=batch_size)
+            val_loader = get_data_loader(val_df, 'validation', colnames_dict, batch_size=batch_size)
+            test_loader = get_data_loader(val_df, 'test', colnames_dict, batch_size=batch_size)
+
+            # Train
+            print('==> Start training...')
+            best_model_path, train_loss_list, val_loss_list = train(n_epochs, device, train_loader, val_loader,
+                                                                    optimizer, global_net, criterion, None,
+                                                                    state_dict_folder_path)
+
+            train_results_df_i = pd.DataFrame({'random_state': [random_state]*n_epochs,
+                                               'fl_round': [fl_round]*n_epochs,
+                                               'epoch': range(n_epochs),
+                                               'train_loss': train_loss_list,
+                                               'val_loss': val_loss_list})
+            train_results_df = pd.concat([train_results_df, train_results_df_i], axis=0)
+
+            # Get best validation loss across all splits
+            if min(val_loss_list) < best_val_loss:
+                best_model_path_across_splits = best_model_path
+
+        print('==> Send training results to server...')
+        train_results_df_path = os.path.join(
+            workspace_path, f'train_results_{client_ip_address}_round_{fl_round}.csv'
+        )
+        train_results_df.to_csv(train_results_df_path, index=False)
+        send_file(server_ip_address, server_username, server_password, train_results_df_path)
 
         # Copy the best model in the state dict folder to the workspace folder
         local_model_path = os.path.join(workspace_path, f'model_{client_ip_address}_round_{fl_round}.pt')
-        os.system(f'cp {best_model_path} {local_model_path}')
+        os.system(f'cp {best_model_path_across_splits} {local_model_path}')
 
         # Send to server
         print('==> Send best local model to server ...')
         send_file(server_ip_address, server_username, server_password, local_model_path)
+
+    # Test final model
+    print('==> Waiting for final model...')
+    final_model_path = os.path.join(workspace_path, 'final_model.pt')
+    wait_for_file(final_model_path.replace('final_model.pt', 'final_model_transfer_completed.txt'))
+    print('==> Testing final model...')
+    global_net = get_weights(net_architecture, final_model_path)
+    test_loss, true_labels_test, pred_labels_test = evaluate(global_net, test_loader, criterion, device, 'test')
+    test_mae = mean_absolute_error(true_labels_test, pred_labels_test)
+    print('==> Sending test results to server...')
+    test_df = pd.DataFrame({'test_loss': [test_loss], 'test_mae': [test_mae]})
+    test_df_path = os.path.join(workspace_path, f'test_results_{client_ip_address}.csv')
+    test_df.to_csv(test_df_path, index=False)
+    send_file(server_ip_address, server_username, server_password, test_df_path)

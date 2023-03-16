@@ -8,13 +8,26 @@ Inspiration federated learning workflow:
 
 import os
 import json
+import random
 import torch
 import argparse
 import paramiko
+import warnings
+import numpy as np
+import pandas as pd
+import datetime as dt
 from scp import SCPClient
 from collections import OrderedDict
 from monai.networks.nets import DenseNet
 from DL_utils.model import get_weights
+
+# Filter deprecation warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+# Suppress printing of paramiko info
+# Source: https://stackoverflow.com/questions/340341/suppressing-output-of-paramiko-sshclient-class
+logger = paramiko.util.logging.getLogger()
+logger.setLevel(paramiko.util.logging.WARN)
 
 
 def createSSHClient(server, port, user, password):
@@ -85,6 +98,22 @@ def weighted_avg_local_models(state_dicts_dict, size_dict):
     return state_dict_avg
 
 
+def get_n_random_pairs_from_dict(input_dict, n, random_seed=None):
+    """ Sample n random pairs from a dict without replacement
+
+    :param input_dict: dict
+    :param n: int, number of pairs to extract
+    :param random_seed: int, random seed
+    :return: dict with n pairs from input dict
+    """
+
+    if random_seed is not None:
+        random.seed(random_seed)
+    output_dict = {k: input_dict.get(k) for k in random.sample(input_dict.keys(), n)}
+
+    return output_dict
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog='Server',
@@ -122,7 +151,12 @@ if __name__ == "__main__":
     # Extract FL plan
     with open(FL_plan_path, 'r') as json_file:
         FL_plan_dict = json.load(json_file)
-    n_rounds = int(FL_plan_dict.get('n_rounds'))  # Number of FL rounds
+    n_rounds = int(FL_plan_dict.get('n_rounds'))                    # Number of FL rounds
+    n_clients_set = FL_plan_dict.get('n_clients_set')               # Number of clients in set for averaging
+    lr = float(FL_plan_dict.get('lr'))                              # Learning rate
+    lr_reduce_factor = float(FL_plan_dict.get('lr_reduce_factor'))  # Factor by which to reduce LR on Plateau
+    patience_lr_reduction = int(FL_plan_dict.get('pat_lr_red'))     # N fl rounds stagnating val loss before reducing lr
+    patience_stop = int(FL_plan_dict.get('pat_stop'))               # N fl rounds stagnating val loss before stopping
 
     # Wait for all clients to share their dataset size
     print('==> Collecting all client dataset sizes...')
@@ -141,9 +175,25 @@ if __name__ == "__main__":
     model_path = os.path.join(workspace_path, 'initial_model.pt')
     torch.save(global_net.state_dict(), model_path)
 
+    # Initialize variables related to validation loss tracking
+    val_loss_ref = np.inf       # Reference validation loss
+    counter_lr_red = 0          # Counter for lr reduction
+    counter_stop = 0            # Counter for FL stop
+
     # Start federated learning
     for fl_round in range(n_rounds):
         print(f'\n*****************\nRound {fl_round}\n*****************\n')
+        round_start_time = dt.datetime.now()
+
+        # Save FL plan with learning rate from previous round (or initial lr) and send to all clients
+        print(f'==> Sending learning rate for this round to all clients...')
+        FL_plan_round_path = os.path.join(workspace_path, f'FL_plan_round_{fl_round}.json')
+        with open(FL_plan_round_path, 'w') as json_file:
+            json.dump(FL_plan_dict, json_file)
+        for ip_address, credentials in client_credentials_dict.items():
+            print(f'    ==> Sending to {ip_address} ...')
+            send_file(ip_address, credentials.get('username'), credentials.get('password'), FL_plan_round_path)
+
         # Send global model to all clients
         for ip_address, credentials in client_credentials_dict.items():
             print(f'==> Sending global model to {ip_address}...')
@@ -155,11 +205,64 @@ if __name__ == "__main__":
             wait_for_file(txt_file_path)
 
         # Create new global model by combining local models
-        # Note: here, all clients are considered, not a random set of them as in https://arxiv.org/pdf/1602.05629.pdf
         print('==> Combining local model weights and saving...')
         local_model_paths_dict = {ip_address: os.path.join(workspace_path, f'model_{ip_address}_round_{fl_round}.pt')
                                   for ip_address in client_credentials_dict.keys()}
         local_state_dicts_dict = {k: torch.load(v, map_location='cpu') for k, v in local_model_paths_dict.items()}
+        if n_clients_set is not None:
+            local_state_dicts_dict = get_n_random_pairs_from_dict(local_state_dicts_dict, n_clients_set)
+            client_dataset_size_dict = get_n_random_pairs_from_dict(client_dataset_size_dict, n_clients_set)
+            print(f'    ==> Clients in sample: {list(local_state_dicts_dict.keys())}')
         new_global_state_dict = weighted_avg_local_models(local_state_dicts_dict, client_dataset_size_dict)
         model_path = os.path.join(workspace_path, f'global_model_round_{fl_round}.pt')  # Overwrite model_path
         torch.save(new_global_state_dict, model_path)
+
+        # Update learning rate
+        # - Calculate average validation loss
+        val_loss_avg = 0
+        print('==> Updating learning rate...')
+        for client_ip_address in client_credentials_dict.keys():
+            wait_for_file(os.path.join(
+                workspace_path, f'train_results_{client_ip_address}_round_{fl_round}_transfer_completed.txt'
+            ))
+            filename = f'train_results_{client_ip_address}_round_{fl_round}.csv'
+            train_results_client_df = pd.read_csv(os.path.join(workspace_path, filename))
+            val_loss_avg += train_results_client_df['val_loss'].min() / len(client_credentials_dict)
+        print(f'     ==> val loss ref: {val_loss_ref} || val loss avg: {val_loss_avg}')
+
+        # - Perform actions based on average validation loss
+        if val_loss_avg < val_loss_ref:         # Improvement
+            val_loss_ref = val_loss_avg
+            counter_lr_red = 0
+            counter_stop = 0
+        else:                                   # No improvement
+            counter_lr_red += 1
+            counter_stop += 1
+            if counter_lr_red == patience_lr_reduction:
+                lr *= lr_reduce_factor
+                FL_plan_dict['lr'] = lr
+                counter_lr_red = 0
+            if counter_stop == patience_stop:
+                stop_txt_file_path = os.path.join(workspace_path, 'stop_training.txt')
+                with open(stop_txt_file_path, 'w') as txt_file:
+                    txt_file.write('This file causes early FL stopping')
+                for ip_address, credentials in client_credentials_dict.items():
+                    print(f'==> Sending stop txt file to {ip_address}...')
+                    send_file(ip_address, credentials.get('username'), credentials.get('password'), stop_txt_file_path)
+                break
+        print(f'     ==> lr reduction counter: {counter_lr_red}')
+        print(f'     ==> lr stop counter: {counter_stop}')
+
+        # Time tracking
+        round_stop_time = dt.datetime.now()
+        round_duration = round_stop_time - round_start_time
+        ETA = (round_stop_time + round_duration * (n_rounds - fl_round - 1)).strftime('%Y/%m/%d, %H:%M:%S')
+        print(f'Round time: {round_duration / 60} min || ETA: {ETA}')
+
+    # Copy final model path and send to clients
+    final_model_path = os.path.join(workspace_path, "final_model.pt")
+    os.system(f'cp {model_path} {final_model_path}')
+    print('==> Sending final model to all clients...')
+    for ip_address, credentials in client_credentials_dict.items():
+        print(f'     ==> Sending to {ip_address}')
+        send_file(ip_address, credentials.get('username'), credentials.get('password'), final_model_path)

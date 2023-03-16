@@ -9,6 +9,7 @@ import pathlib
 import argparse
 import numpy as np
 import nibabel as nib
+from matplotlib.image import imsave
 from bids_validator import BIDSValidator
 from submodules.Wood_2022.pre_process import preprocess
 
@@ -81,6 +82,31 @@ def preprocess_t1w_image(input_path, output_path, skull_strip, Wood_2022_path, u
         nib.save(new_image, output_path)
 
 
+def get_brain_slice_images(nifti_path, output_dir_path=None):
+    """ Get PNG images of brain slices in all directions of a 3D NIfTI
+
+    :param nifti_path: str, path to NIfTI file
+    :param output_dir_path: str, path to output directory. If None, this will be the path to the NIfTI parent directory.
+    """
+    # Load NIfTI and check if it is 3D
+    img = nib.load(nifti_path).get_fdata()
+    if img.ndim == 3:
+        # Get slices in all directions
+        slice_1 = img[img.shape[0]//2, :, :]
+        slice_2 = img[:, img.shape[1]//2, :]
+        slice_3 = img[:, :, img.shape[2]//2]
+
+        # Save images
+        if output_dir_path is None:
+            output_dir_path = os.path.dirname(nifti_path)
+        for i, img_slice in enumerate([slice_1, slice_2, slice_3]):
+            filename = os.path.basename(nifti_path).replace('.nii.gz', f'_slice_{i+1}.png')
+            imsave(os.path.join(output_dir_path, filename), img_slice, cmap='gray')
+
+    else:
+        raise ValueError(f'{nifti_path} does not have exactly 3 dimensions')
+
+
 if __name__ == "__main__":
     # Define command line options
     parser = argparse.ArgumentParser(
@@ -88,7 +114,7 @@ if __name__ == "__main__":
         description = 'This program preprocesses T1w images'
     )
     parser.add_argument('--dataset_root_path', type=str, help='Absolute path to dataset root', required=True)
-    parser.add_argument('--use_gpu', type=str, default=True, help='Use GPU?')
+    parser.add_argument('--use_gpu', action='store_true', help='Use GPU?')
     parser.add_argument('--preprocessing_name', type=str, required=True, help='Preprocessing pipeline description')
     parser.add_argument('--skull_strip', action='store_true', help='Perform skull-stripping?')
 
@@ -109,8 +135,16 @@ if __name__ == "__main__":
     Wood_2022_path = os.path.join(script_parent_dir_path, 'submodules', 'Wood_2022')
 
     # Preprocess dataset
+    preprocessed_output_root_path = os.path.join(dataset_root_path, 'derivatives', preprocessing_name)
     preprocess_BIDS_dataset(input_root_path=dataset_root_path,
-                            output_root_path=os.path.join(dataset_root_path, 'derivatives', preprocessing_name),
+                            output_root_path=preprocessed_output_root_path,
                             skull_strip=skull_strip,
                             use_gpu=use_gpu,
                             Wood_2022_path=Wood_2022_path)
+
+    # Get images of brain slices
+    print('Getting images of brain slices...')
+    for root, dirs, files in os.walk(preprocessed_output_root_path):
+        for file in files:
+            if file.endswith('.nii.gz'):
+                get_brain_slice_images(nifti_path=os.path.join(root, file))
