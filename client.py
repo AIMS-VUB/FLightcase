@@ -142,11 +142,17 @@ if __name__ == "__main__":
 
     # Send dataset size to server
     print('==> Send dataset size to server...')
+    dataset_size = df.shape[0]
     dataset_size_txt_path = os.path.join(workspace_path, f'{client_ip_address}_dataset_size.txt')
     with open(dataset_size_txt_path, 'w') as file:
-        file.write(str(df.shape[0]))
+        file.write(str(dataset_size))
 
     send_file(server_ip_address, server_username, server_password, dataset_size_txt_path)
+
+    # Print number of subjects in train, val and test
+    print(f'==> n_train: {train_fraction * dataset_size} || '
+          f'n_val: {val_fraction * dataset_size} || '
+          f'n_test: {test_fraction * dataset_size}')
 
     # General deep learning settings
     criterion = nn.L1Loss()
