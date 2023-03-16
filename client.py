@@ -139,6 +139,9 @@ if __name__ == "__main__":
     val_fraction = float(FL_plan_dict.get('val_fraction'))          # Fraction of data for validation
     test_fraction = float(FL_plan_dict.get('test_fraction'))        # Fraction of data for testing
     n_splits = int(FL_plan_dict.get('n_splits'))                    # Number of data splits per fl round
+    lr = float(FL_plan_dict.get('lr'))                              # Learning rate
+    lr_reduce_factor = float(FL_plan_dict.get('lr_reduce_factor'))  # Factor by which to reduce LR on Plateau
+    patience_lr_reduction = int(FL_plan_dict.get('pat_lr_red'))     # N fl rounds stagnating val loss before reducing lr
 
     # Send dataset size to server
     print('==> Send dataset size to server...')
@@ -160,20 +163,13 @@ if __name__ == "__main__":
     net_architecture = DenseNet(3, 1, 1)
     test_loader = None
 
+    # Initialize variables related to validation loss tracking
+    val_loss_ref = np.inf       # Reference validation loss
+    counter_lr_red = 0          # Counter for lr reduction
+
     # Start federated learning
     for fl_round in range(n_rounds):
         print(f'\n*****************\nRound {fl_round}\n*****************\n')
-
-        # Wait for FL plan with learning rate for this round
-        print('==> Waiting for learning rate for this round...')
-        FL_plan_path = os.path.join(workspace_path, f'FL_plan_round_{fl_round}.json')
-        stop_file_present = wait_for_file(FL_plan_path.replace('.json', '_transfer_completed.txt'),
-                                          stop_with_stop_file=True)
-        if stop_file_present:
-            break
-        with open(FL_plan_path, 'r') as json_file:
-            FL_plan_dict = json.load(json_file)
-        lr = float(FL_plan_dict.get('lr'))
 
         # Wait for global model to arrive
         print('==> Waiting for global model to arrive...')
@@ -184,7 +180,9 @@ if __name__ == "__main__":
             global_model_path = os.path.join(workspace_path, f'global_model_round_{fl_round-1}.pt')
             global_txt_path = os.path.join(workspace_path, f'global_model_round_{fl_round-1}_transfer_completed.txt')
 
-        wait_for_file(global_txt_path)
+        stop_training = wait_for_file(global_txt_path, stop_with_stop_file=True)
+        if stop_training:
+            break
 
         # Create a state dict folder in the workspace for this training round
         print('==> Make preparations to start training...')
@@ -253,6 +251,19 @@ if __name__ == "__main__":
         # Send to server
         print('==> Send best local model to server ...')
         send_file(server_ip_address, server_username, server_password, local_model_path)
+
+        # Perform actions based on min validation loss across splits and epochs
+        print('==> Validation loss tracking...')
+        if best_val_loss < val_loss_ref:    # Improvement
+            val_loss_ref = best_val_loss
+            counter_lr_red = 0
+        else:                               # No improvement
+            counter_lr_red += 1
+            if counter_lr_red == patience_lr_reduction:
+                lr *= lr_reduce_factor
+                FL_plan_dict['lr'] = lr
+                counter_lr_red = 0
+        print(f'     ==> lr reduction counter: {counter_lr_red}')
 
     # Test final model
     print('==> Waiting for final model...')
