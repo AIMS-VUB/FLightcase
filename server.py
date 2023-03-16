@@ -179,6 +179,7 @@ if __name__ == "__main__":
     val_loss_ref = np.inf       # Reference validation loss
     counter_lr_red = 0          # Counter for lr reduction
     counter_stop = 0            # Counter for FL stop
+    best_model_path = None      # Best model path with lowest avg validation loss
 
     # Start federated learning
     for fl_round in range(n_rounds):
@@ -235,6 +236,7 @@ if __name__ == "__main__":
             val_loss_ref = val_loss_avg
             counter_lr_red = 0
             counter_stop = 0
+            best_model_path = model_path
         else:                                   # No improvement
             counter_lr_red += 1
             counter_stop += 1
@@ -261,8 +263,10 @@ if __name__ == "__main__":
 
     # Copy final model path and send to clients
     final_model_path = os.path.join(workspace_path, "final_model.pt")
-    os.system(f'cp {model_path} {final_model_path}')
-    print('==> Sending final model to all clients...')
+    os.system(f'cp {best_model_path} {final_model_path}')
+    print(f'==> Sending final model ({os.path.basename(best_model_path)}) to all clients...')
+    with open(os.path.join(workspace_path, 'final_model.txt'), 'w') as txt_file:
+        txt_file.write(best_model_path)
     for ip_address, credentials in client_credentials_dict.items():
         print(f'     ==> Sending to {ip_address}')
         send_file(ip_address, credentials.get('username'), credentials.get('password'), final_model_path)
