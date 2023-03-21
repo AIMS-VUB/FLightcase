@@ -198,8 +198,8 @@ if __name__ == "__main__":
                                   for ip_address in client_credentials_dict.keys()}
         local_state_dicts_dict = {k: torch.load(v, map_location='cpu') for k, v in local_model_paths_dict.items()}
         if n_clients_set is not None:
-            local_state_dicts_dict = get_n_random_pairs_from_dict(local_state_dicts_dict, n_clients_set)
-            print(f'    ==> Clients in sample: {list(local_state_dicts_dict.keys())}')
+            local_state_dicts_dict = get_n_random_pairs_from_dict(local_state_dicts_dict, n_clients_set, fl_round)
+            print(f'    ==> Clients in sample (random seed = {fl_round}): {list(local_state_dicts_dict.keys())}')
         new_global_state_dict = weighted_avg_local_models(local_state_dicts_dict,
                                                           {k: client_dataset_size_dict.get(k)
                                                            for k in local_state_dicts_dict.keys()})
