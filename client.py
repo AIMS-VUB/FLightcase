@@ -158,7 +158,7 @@ if __name__ == "__main__":
           f'n_test: {test_fraction * dataset_size}')
 
     # General deep learning settings
-    criterion = nn.L1Loss()
+    criterion = nn.L1Loss(reduction='sum')
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     net_architecture = DenseNet(3, 1, 1)
     test_loader = None

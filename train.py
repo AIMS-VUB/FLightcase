@@ -40,7 +40,7 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
     :param val_loader: torch DataLoader, validation data
     :param optimizer: torch optimizer
     :param net: torch neural network
-    :param criterion: torch.nn loss criterion
+    :param criterion: torch.nn loss criterion. CAVE: use "sum" as reduction!
     :param scheduler: torch lr scheduler
     :param state_dict_output_dir_path: str, path to directory to write state dicts to
     :return: str, path to state dict of the best model
@@ -81,8 +81,8 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
             train_true_label_list.extend(label.tolist())
 
             # Sum variables to allow calculation of mean loss per epoch
-            samples_count += img.shape[0]  # First dimension is number of samples in batch
-            train_loss_sum += loss.sum().detach().item()
+            samples_count += img.shape[0]               # First dimension is number of samples in batch
+            train_loss_sum += loss.detach().item()
 
             # Update weights
             optimizer.step()
