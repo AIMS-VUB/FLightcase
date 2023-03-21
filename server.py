@@ -199,9 +199,10 @@ if __name__ == "__main__":
         local_state_dicts_dict = {k: torch.load(v, map_location='cpu') for k, v in local_model_paths_dict.items()}
         if n_clients_set is not None:
             local_state_dicts_dict = get_n_random_pairs_from_dict(local_state_dicts_dict, n_clients_set)
-            client_dataset_size_dict = get_n_random_pairs_from_dict(client_dataset_size_dict, n_clients_set)
             print(f'    ==> Clients in sample: {list(local_state_dicts_dict.keys())}')
-        new_global_state_dict = weighted_avg_local_models(local_state_dicts_dict, client_dataset_size_dict)
+        new_global_state_dict = weighted_avg_local_models(local_state_dicts_dict,
+                                                          {k: client_dataset_size_dict.get(k)
+                                                           for k in local_state_dicts_dict.keys()})
         model_path = os.path.join(workspace_path, f'global_model_round_{fl_round}.pt')  # Overwrite model_path
         torch.save(new_global_state_dict, model_path)
 
