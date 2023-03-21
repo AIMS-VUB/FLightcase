@@ -52,19 +52,19 @@ def create_loss_figure(workspace_dir_path, fig_width, clients, server_FL_setting
         axes[i].set_title(server_FL_settings
                           .get('client_credentials')
                           .get(client)
-                          .get('name'), loc='right', color='#AEAEAE')
+                          .get('name'), loc='right')
         if i == len(clients) - 1:
-            axes[i].set_xlabel('FL rounds')
+            axes[i].set_xlabel('FL rounds', fontsize = 14)
         axes[i].set_xticks(np.arange(all_rounds_df['fl_round'].min(), all_rounds_df['fl_round'].max()+1, 1))
-        axes[i].set_ylabel('L1 loss')
+        axes[i].set_ylabel('L1 loss', fontsize = 14)
         test_results_client = pd.read_csv(os.path.join(workspace_dir_path, f'test_results_{client}.csv'))
         test_loss_client = test_results_client['test_loss'].iloc[0]
         test_mae_client = test_results_client['test_mae'].iloc[0]
         axes[i].set_title(f'test loss = {test_loss_client:.2f} || test mae = {test_mae_client:.2f}')
-        axes[i].axvline(x=best_model_round, color = '#AEAEAE')
+        axes[i].axvline(x=best_model_round, color = '#808080')
         y_text = axes[i].get_ylim()[0] + 0.7 * (axes[i].get_ylim()[1] - axes[i].get_ylim()[0])
         axes[i].text(x=best_model_round+0.1, y=y_text,
-                     s='final model', color = '#AEAEAE', fontsize=8, rotation=90)
+                     s='final model', color = '#808080', fontsize=9, rotation=90)
 
     return fig, axes
 
