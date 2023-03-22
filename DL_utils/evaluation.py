@@ -11,7 +11,7 @@ def evaluate(net, data_loader, criterion, device, eval_type, print_message=False
 
     :param net: torch neural network
     :param data_loader: torch DataLoader
-    :param criterion: torch.nn loss criterion
+    :param criterion: torch.nn loss criterion. CAVE: use "sum" as reduction!
     :param device: torch.device, cpu or gpu
     :param eval_type: str, choose from ["validation", "test"]
     :param print_message: bool, print message?
@@ -38,7 +38,7 @@ def evaluate(net, data_loader, criterion, device, eval_type, print_message=False
             # pred_label_list.extend((np.e**pred_label).argmax(dim=1).tolist())
             pred_label_list.extend(pred_label.reshape(1, -1)[0].tolist())
             true_label_list.extend(label.reshape(1, -1)[0].tolist())
-            loss_sum += criterion(pred_label, label).sum().detach().item()
+            loss_sum += criterion(pred_label, label).detach().item()
             samples_count += img.shape[0]
 
         loss_mean = loss_sum / samples_count
