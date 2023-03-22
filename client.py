@@ -168,12 +168,12 @@ if __name__ == "__main__":
     counter_lr_red = 0          # Counter for lr reduction
 
     # Start federated learning
-    for fl_round in range(n_rounds):
+    for fl_round in range(1, n_rounds + 1):  # Start counting from 1
         print(f'\n*****************\nRound {fl_round}\n*****************\n')
 
         # Wait for global model to arrive
         print('==> Waiting for global model to arrive...')
-        if fl_round == 0:
+        if fl_round == 1:
             global_model_path = os.path.join(workspace_path, f'initial_model.pt')
             global_txt_path = os.path.join(workspace_path, f'initial_model_transfer_completed.txt')
         else:

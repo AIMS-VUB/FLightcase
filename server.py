@@ -178,7 +178,7 @@ if __name__ == "__main__":
     best_model_path = None      # Best model path with lowest avg validation loss
 
     # Start federated learning
-    for fl_round in range(n_rounds):
+    for fl_round in range(1, n_rounds + 1):  # Start counting from 1
         print(f'\n*****************\nRound {fl_round}\n*****************\n')
         round_start_time = dt.datetime.now()
 
