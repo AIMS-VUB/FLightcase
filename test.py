@@ -3,6 +3,7 @@ Test script
 ==> Inspired by the GitHub repository of Wood et al. 2022 (https://github.com/MIDIconsortium/BrainAge)
 """
 
+import json
 import torch
 import argparse
 import pandas as pd
@@ -22,6 +23,7 @@ if __name__ == "__main__":
     parser.add_argument('--root_path', type=str, help='Path to parent directory containing subjects subdirectories')
     parser.add_argument('--phenotypic_tsv_path', type=str, help='Specify path to phenotypic data')
     parser.add_argument('--state_dict_path', type=str, help='Specify path to state_dict')
+    parser.add_argument('--settings_path', type=str, help='Path to settings dict')
     parser.add_argument('--column_name_id', type=str, default='subject_id', help='Column name of the id column')
     parser.add_argument('--column_name_label', type=str, default='subject_age', help='Column name of the label column')
     parser.add_argument('--output_path_tsv', type=str, default=None, help='Absolute path to output file (TSV)')
@@ -36,6 +38,11 @@ if __name__ == "__main__":
     # Get data loader
     test_df = pd.read_csv(args.phenotypic_tsv_path, sep='\t')
     test_df['img_path'] = test_df[args.column_name_id].apply(lambda x: f'{args.root_path}/{x}/anat/{x}_T1w.nii.gz')
+    with open(args.settings_path, 'r') as file:
+        settings_dict = json.load(file)
+    subject_ids = settings_dict.get('subject_ids')
+    if subject_ids is not None:
+        test_df = test_df[test_df[args.column_name_id].isin(subject_ids)]
     colnames_dict = {'id': args.column_name_id, 'img_path': 'img_path', 'label': args.column_name_label}
     test_loader = get_data_loader(test_df, 'test', colnames_dict, batch_size=args.batch_size)
 
