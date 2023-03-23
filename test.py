@@ -7,6 +7,7 @@ import torch
 import argparse
 import pandas as pd
 import torch.nn as nn
+import scipy.stats as stats
 import matplotlib.pyplot as plt
 from monai.networks.nets import DenseNet
 from DL_utils.data import get_data_loader
@@ -54,8 +55,13 @@ if __name__ == "__main__":
         ax.set_ylabel('Pred')
         plt.show()
 
+    output_df = pd.DataFrame({'test_true': test_true_label_list, 'test_pred': test_pred_label_list})
     if args.output_path_tsv is not None:
-        output_df = pd.DataFrame({'test_true': test_true_label_list, 'test_pred': test_pred_label_list})
         output_df.to_csv(args.output_path_tsv, sep='\t')
 
+    # Wilcoxon test
+    T, p = stats.wilcoxon(x=output_df['test_pred'], y=output_df['test_true'])
+
     print(f'MAE: {mean_absolute_error(test_true_label_list, test_pred_label_list)}')
+    print(f'Description pred-true:\n{(output_df["test_pred"] - output_df["test_true"]).describe()}\n\n')
+    print(f'Pred-true distribution Wilcoxon test --> T = {T:.2f}, p = {p:.3f}')
