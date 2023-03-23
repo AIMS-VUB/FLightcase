@@ -18,7 +18,7 @@ from sklearn.metrics import mean_absolute_error
 if __name__ == "__main__":
     # Define command line options
     parser = argparse.ArgumentParser()
-    parser.add_argument('--state_dict_path', type=str, required=True, help='Specify path to state_dict if desired')
+    parser.add_argument('--state_dict_path', type=str, help='Specify path to state_dict')
     parser.add_argument('--test_df_path', type=str, required=True, help='Specify path to state_dict if desired')
     parser.add_argument('--column_name_id', type=str, default='subject_id', help='Column name of the id column')
     parser.add_argument('--column_name_img_path', type=str, default='img_path', help='Column name of image path column')
