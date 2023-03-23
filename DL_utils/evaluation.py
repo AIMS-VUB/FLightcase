@@ -4,6 +4,7 @@ Utilities related to model evaluation
 """
 
 import torch
+from tqdm import tqdm
 
 
 def evaluate(net, data_loader, criterion, device, eval_type, print_message=False):
@@ -25,7 +26,7 @@ def evaluate(net, data_loader, criterion, device, eval_type, print_message=False
 
     with torch.no_grad():
         net.eval().to(device)
-        for img, label in data_loader:
+        for img, label in tqdm(data_loader):
             # Send to device
             img = img.to(device)
             label = label.to(device)
