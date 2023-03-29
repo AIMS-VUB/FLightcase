@@ -132,7 +132,6 @@ if __name__ == "__main__":
     with open(FL_plan_path, 'r') as json_file:
         FL_plan_dict = json.load(json_file)
     n_rounds = int(FL_plan_dict.get('n_rounds'))                    # Number of FL rounds
-    n_epochs = int(FL_plan_dict.get('n_epochs'))                    # Number of epochs per FL round
     transfer_learning = FL_plan_dict.get('transfer_learning')       # Only update FC layer?')
     batch_size = int(FL_plan_dict.get('batch_size'))                # Batch size for the data loaders
     train_fraction = float(FL_plan_dict.get('train_fraction'))      # Fraction of data for training
@@ -220,13 +219,11 @@ if __name__ == "__main__":
 
             # Train
             print('==> Start training...')
-            best_model_path, train_loss_list, val_loss_list = train(n_epochs, device, train_loader, val_loader,
-                                                                    optimizer, global_net, criterion, None,
-                                                                    state_dict_folder_path)
+            best_model_path, train_loss_list, val_loss_list = train(1, device, train_loader, val_loader, optimizer,
+                                                                    global_net, criterion, None, state_dict_folder_path)
 
-            train_results_df_i = pd.DataFrame({'random_state': [random_state]*n_epochs,
-                                               'fl_round': [fl_round]*n_epochs,
-                                               'epoch': range(n_epochs),
+            train_results_df_i = pd.DataFrame({'random_state': [random_state],
+                                               'fl_round': [fl_round],
                                                'train_loss': train_loss_list,
                                                'val_loss': val_loss_list})
             train_results_df = pd.concat([train_results_df, train_results_df_i], axis=0)
