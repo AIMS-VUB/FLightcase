@@ -205,7 +205,6 @@ if __name__ == "__main__":
 
         # Initiate variables
         best_model_path_across_splits = None
-        local_model_path = None
         best_val_loss = np.inf
         random_states = range(n_splits*fl_round, n_splits*fl_round + n_splits)  # Assure random state is never repeated
         train_results_df = pd.DataFrame()
