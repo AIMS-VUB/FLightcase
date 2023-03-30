@@ -114,6 +114,27 @@ def get_n_random_pairs_from_dict(input_dict, n, random_seed=None):
     return output_dict
 
 
+def get_parameters(model, transfer_learning):
+    """ Get total and trainable parameters of a torch neural network
+    Source: https://stackoverflow.com/questions/49201236/check-the-total-number-of-parameters-in-a-pytorch-model
+
+    :param model: torch neural network
+    :param transfer_learning: bool, freeze all weights except fully connected layer?
+    """
+
+    if transfer_learning:
+        # Freeze all weights in the network
+        for param in model.parameters():
+            param.requires_grad = False
+        # Unfreeze weights of the fully connected layer
+        for param in model.class_layers.out.parameters():
+            param.requires_grad = True
+    total_parameters_dict = {name: p.numel() for name, p in model.named_parameters()}
+    trainable_parameters_dict = {name: p.numel() for name, p in model.named_parameters() if p.requires_grad}
+
+    return total_parameters_dict, trainable_parameters_dict
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog='Server',
@@ -154,6 +175,7 @@ if __name__ == "__main__":
     n_rounds = int(FL_plan_dict.get('n_rounds'))                    # Number of FL rounds
     n_clients_set = FL_plan_dict.get('n_clients_set')               # Number of clients in set for averaging
     patience_stop = int(FL_plan_dict.get('pat_stop'))               # N fl rounds stagnating val loss before stopping
+    transfer_learning = FL_plan_dict.get('transfer_learning')       # Perform transfer learning?
 
     # Wait for all clients to share their dataset size
     print('==> Collecting all client dataset sizes...')
@@ -171,6 +193,12 @@ if __name__ == "__main__":
     global_net = get_weights(net_architecture, initial_state_dict_path)
     model_path = os.path.join(workspace_path, 'initial_model.pt')
     torch.save(global_net.state_dict(), model_path)
+
+    # Print model information: total and trainable parameters
+    total_parameters_dict, trainable_parameters_dict = get_parameters(global_net, transfer_learning)
+    print(f'Total number of parameters: {sum(total_parameters_dict.values())}')
+    print(f'Number of trainable parameters: {sum(trainable_parameters_dict.values())}')
+    print(f'More info trainable parameters: {trainable_parameters_dict}')
 
     # Initialize variables related to validation loss tracking
     val_loss_ref = np.inf       # Reference validation loss
