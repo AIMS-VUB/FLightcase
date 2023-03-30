@@ -177,6 +177,10 @@ if __name__ == "__main__":
     n_clients_set = FL_plan_dict.get('n_clients_set')               # Number of clients in set for averaging
     patience_stop = int(FL_plan_dict.get('pat_stop'))               # N fl rounds stagnating val loss before stopping
     transfer_learning = FL_plan_dict.get('transfer_learning')       # Perform transfer learning?
+    print('\n========\nFL plan:\n========\n')
+    for k, v in FL_plan_dict.items():
+        print(f'- {k}: {v}')
+    print('\n')
 
     # Wait for all clients to share their dataset size
     print('==> Collecting all client dataset sizes...')
