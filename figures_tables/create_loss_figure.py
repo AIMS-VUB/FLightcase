@@ -49,10 +49,7 @@ def create_loss_figure(workspace_dir_path, fig_width, clients, server_FL_setting
         axes[i].legend()
 
         # Figure aesthetics
-        axes[i].set_title(server_FL_settings
-                          .get('client_credentials')
-                          .get(client)
-                          .get('name'), loc='right')
+        axes[i].set_title(client, loc='right')
         if i == len(clients) - 1:
             axes[i].set_xlabel('FL rounds', fontsize = 14)
         axes[i].set_xticks(np.arange(all_rounds_df['fl_round'].min(), all_rounds_df['fl_round'].max()+1, 1))

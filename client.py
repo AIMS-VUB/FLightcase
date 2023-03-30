@@ -96,7 +96,7 @@ if __name__ == "__main__":
     with open(settings_path, 'r') as json_file:
         settings_dict = json.load(json_file)
     workspace_path = settings_dict.get('workspace_path')            # Path to workspace for server and clients
-    client_ip_address = settings_dict.get('client_ip_address')      # Client ip address
+    client_name = settings_dict.get('client_name')                  # Client name
     server_ip_address = settings_dict.get('server_ip_address')      # Server ip address
     server_username = settings_dict.get('server_username')          # Server username
     server_password = settings_dict.get('server_password')          # Server password
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     # Send dataset size to server
     print('==> Send dataset size to server...')
     dataset_size = df.shape[0]
-    dataset_size_txt_path = os.path.join(workspace_path, f'{client_ip_address}_dataset_size.txt')
+    dataset_size_txt_path = os.path.join(workspace_path, f'{client_name}_dataset_size.txt')
     with open(dataset_size_txt_path, 'w') as file:
         file.write(str(dataset_size))
 
@@ -185,7 +185,7 @@ if __name__ == "__main__":
 
         # Create a state dict folder in the workspace for this training round
         print('==> Make preparations to start training...')
-        state_dict_folder_path = os.path.join(workspace_path, f'state_dicts_{client_ip_address}_round_{fl_round}')
+        state_dict_folder_path = os.path.join(workspace_path, f'state_dicts_{client_name}_round_{fl_round}')
         if not os.path.exists(state_dict_folder_path):
             os.mkdir(state_dict_folder_path)
 
@@ -234,14 +234,12 @@ if __name__ == "__main__":
                 best_model_path_across_splits = best_model_path
 
         print('==> Send training results to server...')
-        train_results_df_path = os.path.join(
-            workspace_path, f'train_results_{client_ip_address}_round_{fl_round}.csv'
-        )
+        train_results_df_path = os.path.join(workspace_path, f'train_results_{client_name}_round_{fl_round}.csv')
         train_results_df.to_csv(train_results_df_path, index=False)
         send_file(server_ip_address, server_username, server_password, train_results_df_path)
 
         # Copy the best model in the state dict folder to the workspace folder
-        local_model_path = os.path.join(workspace_path, f'model_{client_ip_address}_round_{fl_round}.pt')
+        local_model_path = os.path.join(workspace_path, f'model_{client_name}_round_{fl_round}.pt')
         os.system(f'cp {best_model_path_across_splits} {local_model_path}')
 
         # Send to server
@@ -271,6 +269,6 @@ if __name__ == "__main__":
     test_mae = mean_absolute_error(true_labels_test, pred_labels_test)
     print('==> Sending test results to server...')
     test_df = pd.DataFrame({'test_loss': [test_loss], 'test_mae': [test_mae]})
-    test_df_path = os.path.join(workspace_path, f'test_results_{client_ip_address}.csv')
+    test_df_path = os.path.join(workspace_path, f'test_results_{client_name}.csv')
     test_df.to_csv(test_df_path, index=False)
     send_file(server_ip_address, server_username, server_password, test_df_path)

@@ -164,9 +164,10 @@ if __name__ == "__main__":
 
     # Send FL plan to all clients
     print(f'==> Sending FL plan to all clients...')
-    for ip_address, credentials in client_credentials_dict.items():
-        print(f'    ==> Sending to {ip_address} ...')
-        send_file(ip_address, credentials.get('username'), credentials.get('password'),
+    for client_name, credentials in client_credentials_dict.items():
+        print(f'    ==> Sending to {client_name} ...')
+        client_ip_address = credentials.get('ip_address')
+        send_file(client_ip_address, credentials.get('username'), credentials.get('password'),
                   os.path.join(workspace_path, 'FL_plan.json'))
 
     # Extract FL plan
@@ -180,13 +181,13 @@ if __name__ == "__main__":
     # Wait for all clients to share their dataset size
     print('==> Collecting all client dataset sizes...')
     client_dataset_size_dict = {}
-    for client_ip_address in client_credentials_dict.keys():
-        client_dataset_txt_path = os.path.join(workspace_path, f'{client_ip_address}_dataset_size.txt')
+    for client_name in client_credentials_dict.keys():
+        client_dataset_txt_path = os.path.join(workspace_path, f'{client_name}_dataset_size.txt')
         wait_for_file(client_dataset_txt_path.replace('.txt', '_transfer_completed.txt'))
         with open(client_dataset_txt_path, 'r') as file:
             n_client = int(file.read())
-            client_dataset_size_dict.update({client_ip_address: n_client})
-            print(f'     ==> {client_ip_address}: n = {n_client}')
+            client_dataset_size_dict.update({client_name: n_client})
+            print(f'     ==> {client_name}: n = {n_client}')
 
     # Load initial network and save
     net_architecture = DenseNet(3, 1, 1)
@@ -211,19 +212,20 @@ if __name__ == "__main__":
         round_start_time = dt.datetime.now()
 
         # Send global model to all clients
-        for ip_address, credentials in client_credentials_dict.items():
-            print(f'==> Sending global model to {ip_address}...')
-            send_file(ip_address, credentials.get('username'), credentials.get('password'), model_path)
+        for client_name, credentials in client_credentials_dict.items():
+            print(f'==> Sending global model to {client_name}...')
+            client_ip_address = credentials.get('ip_address')
+            send_file(client_ip_address, credentials.get('username'), credentials.get('password'), model_path)
         print('==> Model shared with all clients. Waiting for updated client models...')
-        txt_file_paths = [os.path.join(workspace_path, f'model_{ip_address}_round_{fl_round}_transfer_completed.txt')
-                          for ip_address in client_credentials_dict.keys()]
+        txt_file_paths = [os.path.join(workspace_path, f'model_{client_name}_round_{fl_round}_transfer_completed.txt')
+                          for client_name in client_credentials_dict.keys()]
         for txt_file_path in txt_file_paths:
             wait_for_file(txt_file_path)
 
         # Create new global model by combining local models
         print('==> Combining local model weights and saving...')
-        local_model_paths_dict = {ip_address: os.path.join(workspace_path, f'model_{ip_address}_round_{fl_round}.pt')
-                                  for ip_address in client_credentials_dict.keys()}
+        local_model_paths_dict = {client_name: os.path.join(workspace_path, f'model_{client_name}_round_{fl_round}.pt')
+                                  for client_name in client_credentials_dict.keys()}
         local_state_dicts_dict = {k: torch.load(v, map_location='cpu') for k, v in local_model_paths_dict.items()}
         if n_clients_set is not None:
             local_state_dicts_dict = get_n_random_pairs_from_dict(local_state_dicts_dict, n_clients_set, fl_round)
@@ -237,11 +239,11 @@ if __name__ == "__main__":
         # Calculate average validation loss
         val_loss_avg = 0
         print('==> Average validation loss tracking...')
-        for client_ip_address in client_credentials_dict.keys():
+        for client_name in client_credentials_dict.keys():
             wait_for_file(os.path.join(
-                workspace_path, f'train_results_{client_ip_address}_round_{fl_round}_transfer_completed.txt'
+                workspace_path, f'train_results_{client_name}_round_{fl_round}_transfer_completed.txt'
             ))
-            filename = f'train_results_{client_ip_address}_round_{fl_round}.csv'
+            filename = f'train_results_{client_name}_round_{fl_round}.csv'
             train_results_client_df = pd.read_csv(os.path.join(workspace_path, filename))
             val_loss_avg += train_results_client_df['val_loss'].min() / len(client_credentials_dict)
         print(f'     ==> val loss ref: {val_loss_ref} || val loss avg: {val_loss_avg}')
@@ -257,9 +259,11 @@ if __name__ == "__main__":
                 stop_txt_file_path = os.path.join(workspace_path, 'stop_training.txt')
                 with open(stop_txt_file_path, 'w') as txt_file:
                     txt_file.write('This file causes early FL stopping')
-                for ip_address, credentials in client_credentials_dict.items():
-                    print(f'==> Sending stop txt file to {ip_address}...')
-                    send_file(ip_address, credentials.get('username'), credentials.get('password'), stop_txt_file_path)
+                for client_name, credentials in client_credentials_dict.items():
+                    print(f'==> Sending stop txt file to {client_name}...')
+                    client_ip_address = credentials.get('ip_address')
+                    send_file(client_ip_address, credentials.get('username'), credentials.get('password'),
+                              stop_txt_file_path)
                 break
         print(f'     ==> lr stop counter: {counter_stop}')
 
@@ -275,6 +279,7 @@ if __name__ == "__main__":
     print(f'==> Sending final model ({os.path.basename(best_model_path)}) to all clients...')
     with open(os.path.join(workspace_path, 'final_model.txt'), 'w') as txt_file:
         txt_file.write(best_model_path)
-    for ip_address, credentials in client_credentials_dict.items():
-        print(f'     ==> Sending to {ip_address}')
-        send_file(ip_address, credentials.get('username'), credentials.get('password'), final_model_path)
+    for client_name, credentials in client_credentials_dict.items():
+        print(f'     ==> Sending to {client_name}')
+        client_ip_address = credentials.get('ip_address')
+        send_file(client_ip_address, credentials.get('username'), credentials.get('password'), final_model_path)
