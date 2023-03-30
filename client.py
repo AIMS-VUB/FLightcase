@@ -81,6 +81,20 @@ def wait_for_file(file_path, stop_with_stop_file = False):
     return stop_file_present
 
 
+def prepare_for_transfer_learning(net):
+    """
+    Prepare torch neural network for transfer learning
+    ==> freeze all weights except those in the fully connected layer
+    """
+    # Freeze all weights in the network
+    for param in net.parameters():
+        param.requires_grad = False
+    # Unfreeze weights of the fully connected layer
+    for param in net.class_layers.out.parameters():
+        param.requires_grad = True
+    return net
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog='Client',
@@ -132,7 +146,6 @@ if __name__ == "__main__":
     with open(FL_plan_path, 'r') as json_file:
         FL_plan_dict = json.load(json_file)
     n_rounds = int(FL_plan_dict.get('n_rounds'))                    # Number of FL rounds
-    transfer_learning = FL_plan_dict.get('transfer_learning')       # Only update FC layer?')
     batch_size = int(FL_plan_dict.get('batch_size'))                # Batch size for the data loaders
     train_fraction = float(FL_plan_dict.get('train_fraction'))      # Fraction of data for training
     val_fraction = float(FL_plan_dict.get('val_fraction'))          # Fraction of data for validation
@@ -189,15 +202,9 @@ if __name__ == "__main__":
         if not os.path.exists(state_dict_folder_path):
             os.mkdir(state_dict_folder_path)
 
-        # Load global network
+        # Load global network and prepare for transfer learning
         global_net = get_weights(net_architecture, global_model_path)
-        if transfer_learning:
-            # Freeze all weights in the network
-            for param in global_net.parameters():
-                param.requires_grad = False
-            # Unfreeze weights of the fully connected layer
-            for param in global_net.class_layers.out.parameters():
-                param.requires_grad = True
+        global_net = prepare_for_transfer_learning(global_net)
 
         # Deep learning settings per FL round
         optimizer = torch.optim.Adam(global_net.parameters(), lr=lr)

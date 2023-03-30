@@ -176,7 +176,6 @@ if __name__ == "__main__":
     n_rounds = int(FL_plan_dict.get('n_rounds'))                    # Number of FL rounds
     n_clients_set = FL_plan_dict.get('n_clients_set')               # Number of clients in set for averaging
     patience_stop = int(FL_plan_dict.get('pat_stop'))               # N fl rounds stagnating val loss before stopping
-    transfer_learning = FL_plan_dict.get('transfer_learning')       # Perform transfer learning?
     print('\n========\nFL plan:\n========\n')
     for k, v in FL_plan_dict.items():
         print(f'- {k}: {v}')
@@ -200,7 +199,7 @@ if __name__ == "__main__":
     torch.save(global_net.state_dict(), model_path)
 
     # Print model information: total and trainable parameters
-    total_parameters_dict, trainable_parameters_dict = get_parameters(global_net, transfer_learning)
+    total_parameters_dict, trainable_parameters_dict = get_parameters(global_net, transfer_learning=True)
     print(f'Total number of parameters: {sum(total_parameters_dict.values())}')
     print(f'Number of trainable parameters: {sum(trainable_parameters_dict.values())}')
     print(f'More info trainable parameters: {trainable_parameters_dict}')
