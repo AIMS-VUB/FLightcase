@@ -7,6 +7,7 @@ Inspiration federated learning workflow:
 """
 
 import os
+import copy
 import json
 import numpy as np
 import torch
@@ -93,6 +94,55 @@ def prepare_for_transfer_learning(net):
     for param in net.class_layers.out.parameters():
         param.requires_grad = True
     return net
+
+
+def copy_net(net):
+    """ Copy torch network
+
+    Source: https://androidkt.com/copy-pytorch-model-using-deepcopy-and-state_dict/
+    """
+    net_copy = copy.deepcopy(net)
+    return net_copy
+
+
+def loss_to_contribution(loss_list):
+    """
+    Convert loss list into normalised weights.
+    Higher loss = lower contribution.
+    """
+    contribution_weights = [1 / val for val in loss_list]
+    contribution_weights_normalised = [val / (sum(contribution_weights)) for val in contribution_weights]
+    return contribution_weights_normalised
+
+
+def get_net_weighted_average_fc(net_architecture, path_error_dict):
+    """
+    Get network of which the fully connected layer is a weighted average of the fc layers of multiple models.
+    The contribution of a model is based on their its loss (higher loss = lower contribution)
+    """
+    # Convert loss to normalised contribution (so that sum of the contributions is 1)
+    path_contribution_dict = dict(zip(path_error_dict.keys(), loss_to_contribution(path_error_dict.values())))
+
+    # Initialise weight and bias tensor
+    fc_weights = torch.tensor(np.zeros((1, 1024)))
+    fc_bias = torch.tensor([0.0])
+
+    for path, contribution in path_contribution_dict.items():
+        # Load network weights
+        net = get_weights(copy_net(net_architecture), path)
+        net.to(torch.device('cpu'))
+
+        # Update weight and bias tensor with the contribution of the model
+        fc_weights += net.class_layers.out.weight * contribution
+        fc_bias += net.class_layers.out.bias * contribution
+
+    # Load one of the networks and replace its fc with the weighted average fc
+    net_with_weighted_avg_fc = get_weights(copy_net(net_architecture), list(path_error_dict.keys())[0])
+    net_with_weighted_avg_fc.to(torch.device('cpu'))
+    net_with_weighted_avg_fc.class_layers.out.weight = torch.nn.Parameter(fc_weights)
+    net_with_weighted_avg_fc.class_layers.out.bias = torch.nn.Parameter(fc_bias)
+
+    return net_with_weighted_avg_fc
 
 
 if __name__ == "__main__":
@@ -210,7 +260,7 @@ if __name__ == "__main__":
         optimizer = torch.optim.Adam(global_net.parameters(), lr=lr)
 
         # Initiate variables
-        best_model_path_across_splits = None
+        path_error_dict = {}
         best_val_loss = np.inf
         random_states = range(n_splits*fl_round, n_splits*fl_round + n_splits)  # Assure random state is never repeated
         train_results_df = pd.DataFrame()
@@ -238,19 +288,22 @@ if __name__ == "__main__":
             # Get best validation loss across all splits
             if min(val_loss_list) < best_val_loss:
                 best_val_loss = min(val_loss_list)
-                best_model_path_across_splits = best_model_path
+
+            # Update dict
+            path_error_dict.update({best_model_path: val_loss_list[0]})
 
         print('==> Send training results to server...')
         train_results_df_path = os.path.join(workspace_path, f'train_results_{client_name}_round_{fl_round}.csv')
         train_results_df.to_csv(train_results_df_path, index=False)
         send_file(server_ip_address, server_username, server_password, train_results_df_path)
 
-        # Copy the best model in the state dict folder to the workspace folder
+        # Get local model
+        local_model = get_net_weighted_average_fc(net_architecture, path_error_dict)
         local_model_path = os.path.join(workspace_path, f'model_{client_name}_round_{fl_round}.pt')
-        os.system(f'cp {best_model_path_across_splits} {local_model_path}')
+        torch.save(local_model.state_dict(), local_model_path)
 
         # Send to server
-        print('==> Send best local model to server ...')
+        print('==> Send model with weighted average fc to server ...')
         send_file(server_ip_address, server_username, server_password, local_model_path)
 
         # Perform actions based on min validation loss across splits and epochs
