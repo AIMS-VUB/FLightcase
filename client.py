@@ -214,11 +214,6 @@ if __name__ == "__main__":
 
     send_file(server_ip_address, server_username, server_password, dataset_size_txt_path)
 
-    # Print number of subjects in train, val and test
-    print(f'==> n_train: {train_fraction * dataset_size} || '
-          f'n_val: {val_fraction * dataset_size} || '
-          f'n_test: {test_fraction * dataset_size}')
-
     # General deep learning settings
     criterion = nn.L1Loss(reduction='sum')
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -270,9 +265,9 @@ if __name__ == "__main__":
             # Note: Fix train_test_random_state to assure test data is always the same
             train_df, val_df, test_df = split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction,
                                                    train_test_random_state=42, train_val_random_state=random_state)
-            train_loader = get_data_loader(train_df, 'train', colnames_dict, batch_size=batch_size)
-            val_loader = get_data_loader(val_df, 'validation', colnames_dict, batch_size=batch_size)
-            test_loader = get_data_loader(val_df, 'test', colnames_dict, batch_size=batch_size)
+            train_loader, n_train = get_data_loader(train_df, 'train', colnames_dict, batch_size, return_n=True)
+            val_loader, n_val = get_data_loader(val_df, 'validation', colnames_dict, batch_size, return_n=True)
+            test_loader, n_test = get_data_loader(val_df, 'test', colnames_dict, batch_size, return_n=True)
 
             # Train
             print('==> Start training...')
@@ -282,7 +277,10 @@ if __name__ == "__main__":
             train_results_df_i = pd.DataFrame({'random_state': [random_state],
                                                'fl_round': [fl_round],
                                                'train_loss': train_loss_list,
-                                               'val_loss': val_loss_list})
+                                               'val_loss': val_loss_list,
+                                               'n_train': n_train,
+                                               'n_val': n_val,
+                                               'n_test': n_test})
             train_results_df = pd.concat([train_results_df, train_results_df_i], axis=0)
 
             # Get best validation loss across all splits
