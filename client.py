@@ -256,7 +256,7 @@ if __name__ == "__main__":
 
         # Initiate variables
         path_error_dict = {}
-        best_val_loss = np.inf
+        mean_val_loss = 0
         random_states = range(n_splits*fl_round, n_splits*fl_round + n_splits)  # Assure random state is never repeated
         train_results_df = pd.DataFrame()
         for split_i, random_state in enumerate(random_states):
@@ -283,9 +283,8 @@ if __name__ == "__main__":
                                                'n_test': n_test})
             train_results_df = pd.concat([train_results_df, train_results_df_i], axis=0)
 
-            # Get best validation loss across all splits
-            if min(val_loss_list) < best_val_loss:
-                best_val_loss = min(val_loss_list)
+            # Update mean val loss
+            mean_val_loss += val_loss_list[0]/n_splits
 
             # Update dict
             path_error_dict.update({best_model_path: val_loss_list[0]})
@@ -306,8 +305,8 @@ if __name__ == "__main__":
 
         # Perform actions based on min validation loss across splits and epochs
         print('==> Validation loss tracking...')
-        if best_val_loss < val_loss_ref:    # Improvement
-            val_loss_ref = best_val_loss
+        if mean_val_loss < val_loss_ref:    # Improvement
+            val_loss_ref = mean_val_loss
             counter_lr_red = 0
         else:                               # No improvement
             counter_lr_red += 1
