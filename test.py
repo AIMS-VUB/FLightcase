@@ -80,6 +80,6 @@ if __name__ == "__main__":
     # Wilcoxon test
     T, p = stats.wilcoxon(x=output_df['test_pred'], y=output_df['test_true'])
 
-    print(f'MAE: {mean_absolute_error(test_true_label_list, test_pred_label_list)}')
+    print(f'MAE: {mean_absolute_error(output_df["test_true"], output_df["test_pred"])}')
     print(f'Description pred-true:\n{(output_df["test_pred"] - output_df["test_true"]).describe()}\n\n')
     print(f'Pred-true distribution Wilcoxon test --> T = {T:.2f}, p = {p:.3f}')
