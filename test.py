@@ -6,6 +6,7 @@ Test script
 import json
 import torch
 import argparse
+import numpy as np
 import pandas as pd
 import torch.nn as nn
 import scipy.stats as stats
@@ -29,6 +30,10 @@ if __name__ == "__main__":
     parser.add_argument('--output_path_tsv', type=str, default=None, help='Absolute path to output file (TSV)')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size for the data loaders')
     parser.add_argument('--show_scatterplot', action='store_true', help='Show scatterplot between true and pred?')
+    parser.add_argument('--round_ground_truth', type=int, default=None,
+                        help='Round ground truth? ==> Provide number of decimals')
+    parser.add_argument('--round_prediction', type=int, default=None,
+                        help='Round prediction? ==> Provide number of decimals')
     args = parser.parse_args()
 
     # Set device and define criterion
@@ -53,6 +58,12 @@ if __name__ == "__main__":
     # Test
     test_loss, test_true_label_list, test_pred_label_list = evaluate(net, test_loader, criterion, device,
                                                                      'test', print_message=True)
+
+    if args.round_ground_truth is not None:
+        test_true_label_list = list(map(lambda x: np.round(x, args.round_ground_truth), test_true_label_list))
+
+    if args.round_prediction is not None:
+        test_pred_label_list = list(map(lambda x: np.round(x, args.round_prediction), test_pred_label_list))
 
     # Output
     if args.show_scatterplot:
