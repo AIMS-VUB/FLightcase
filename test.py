@@ -28,6 +28,7 @@ if __name__ == "__main__":
     parser.add_argument('--column_name_id', type=str, default='subject_id', help='Column name of the id column')
     parser.add_argument('--column_name_label', type=str, default='subject_age', help='Column name of the label column')
     parser.add_argument('--output_path_tsv', type=str, default=None, help='Absolute path to output file (TSV)')
+    parser.add_argument('--output_path_txt', type=str, default=None, help='Absolute path to output file (TXT)')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size for the data loaders')
     parser.add_argument('--show_scatterplot', action='store_true', help='Show scatterplot between true and pred?')
     parser.add_argument('--round_ground_truth', type=int, default=None,
@@ -80,6 +81,11 @@ if __name__ == "__main__":
     # Wilcoxon test
     T, p = stats.wilcoxon(x=output_df['test_pred'], y=output_df['test_true'])
 
-    print(f'MAE: {mean_absolute_error(output_df["test_true"], output_df["test_pred"])}')
-    print(f'Description pred-true:\n{(output_df["test_pred"] - output_df["test_true"]).describe()}\n\n')
-    print(f'Pred-true distribution Wilcoxon test --> T = {T:.2f}, p = {p:.3f}')
+    txt = f'MAE: {mean_absolute_error(output_df["test_true"], output_df["test_pred"])}\n' \
+          f'Description pred-true:\n{(output_df["test_pred"] - output_df["test_true"]).describe()}\n\n' \
+          f'Pred-true distribution Wilcoxon test --> T = {T:.2f}, p = {p:.3f}'
+
+    if args.output_path_txt is not None:
+        with open(args.output_path_txt, 'w') as file:
+            file.write(txt)
+    print(txt)
