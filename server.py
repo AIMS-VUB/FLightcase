@@ -210,6 +210,7 @@ if __name__ == "__main__":
     val_loss_ref = np.inf       # Reference validation loss
     counter_stop = 0            # Counter for FL stop
     best_model_path = None      # Best model path with lowest avg validation loss
+    avg_val_loss_clients = []   # Average validation loss across clients
 
     # Start federated learning
     for fl_round in range(1, n_rounds + 1):  # Start counting from 1
@@ -252,6 +253,7 @@ if __name__ == "__main__":
             train_results_client_df = pd.read_csv(os.path.join(workspace_path, filename))
             val_loss_avg += train_results_client_df['val_loss'].mean() / len(client_credentials_dict)
         print(f'     ==> val loss ref: {val_loss_ref} || val loss avg: {val_loss_avg}')
+        avg_val_loss_clients.append(val_loss_avg)
 
         # Perform actions based on average validation loss
         if val_loss_avg < val_loss_ref:         # Improvement
@@ -277,6 +279,11 @@ if __name__ == "__main__":
         round_duration = round_stop_time - round_start_time
         ETA = (round_stop_time + round_duration * (n_rounds - fl_round - 1)).strftime('%Y/%m/%d, %H:%M:%S')
         print(f'Round time: {round_duration / 60} min || ETA: {ETA}')
+
+    # Create dataframe with average validation loss across clients
+    avg_val_loss_df = pd.DataFrame({'avg_val_loss_clients': avg_val_loss_clients,
+                                    'fl_round': range(1, fl_round+1)})
+    avg_val_loss_df.to_csv(os.path.join(workspace_path, 'avg_val_loss_clients.csv'), index = False)
 
     # Copy final model path and send to clients
     final_model_path = os.path.join(workspace_path, "final_model.pt")
