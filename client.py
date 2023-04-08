@@ -49,8 +49,10 @@ def send_file(remote_ip_address, username, password, file_path):
     :param file_path: str, path to local file to share
     """
     # Create ssh and scp client
+    # Source to fix issue "scp.SCPException: Timeout waiting for scp response":
+    # ==> https://github.com/ktbyers/netmiko/issues/1254
     ssh = createSSHClient(remote_ip_address, 22, username, password)
-    scp = SCPClient(ssh.get_transport())
+    scp = SCPClient(ssh.get_transport(), socket_timeout=60)
 
     # Share model with client
     scp.put(file_path, remote_path=file_path)
