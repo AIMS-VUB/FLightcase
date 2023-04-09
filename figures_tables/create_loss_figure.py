@@ -13,8 +13,9 @@ import matplotlib.pyplot as plt
 
 def create_loss_figure(workspace_dir_path, fig_width, clients, server_FL_settings, best_model_round):
     # Initiate figure and variables
-    fig, axes = plt.subplots(nrows=len(clients), ncols=1, figsize=(fig_width, fig_width * 0.4 * len(clients)))
+    fig, axes = plt.subplots(nrows=len(clients) + 1, ncols=1, figsize=(fig_width, fig_width * 0.7 * len(clients)))
 
+    client_dfs = []
     for i, client in enumerate(clients):
         # Load training results
         regexp = f'\Atrain_results_{client}_round_[0-9]+.csv\Z'
@@ -37,6 +38,7 @@ def create_loss_figure(workspace_dir_path, fig_width, clients, server_FL_setting
             )
             all_rounds_df = pd.concat([all_rounds_df, round_summary], axis=0)
         all_rounds_df = all_rounds_df.sort_values('fl_round')
+        client_dfs.append(all_rounds_df)
 
         # Plot
         # Source: https://stackoverflow.com/questions/59747313/how-can-i-plot-a-confidence-interval-in-python
@@ -46,23 +48,48 @@ def create_loss_figure(workspace_dir_path, fig_width, clients, server_FL_setting
         axes[i].plot(all_rounds_df['fl_round'], all_rounds_df['val_loss_mean'], color='red', label='validation')
         axes[i].fill_between(all_rounds_df['fl_round'], all_rounds_df['val_loss_95_CI_lower'],
                              all_rounds_df['val_loss_95_CI_upper'], color='red', alpha=.06)
-        axes[i].legend()
+        axes[i].legend(fontsize=14)
 
         # Figure aesthetics
-        axes[i].set_title(client, loc='right')
-        if i == len(clients) - 1:
-            axes[i].set_xlabel('FL rounds', fontsize = 14)
-        axes[i].set_xticks(np.arange(all_rounds_df['fl_round'].min(), all_rounds_df['fl_round'].max()+1, 1))
-        axes[i].set_ylabel('MAE', fontsize = 14)
         test_results_client = pd.read_csv(os.path.join(workspace_dir_path, f'test_results_{client}.csv'))
         test_loss_client = test_results_client['test_loss'].iloc[0]
-        axes[i].set_title(f'test MAE = {test_loss_client:.2f}')
-        axes[i].axvline(x=best_model_round, color = '#808080')
-        y_text = axes[i].get_ylim()[0] + 0.7 * (axes[i].get_ylim()[1] - axes[i].get_ylim()[0])
-        axes[i].text(x=best_model_round+0.1, y=y_text,
-                     s='final model', color = '#808080', fontsize=9, rotation=90)
+        title_center = f'test MAE = {test_loss_client:.2f}'
+        title_right = f'Client: {client}'
+        xticks = np.arange(all_rounds_df['fl_round'].min(), all_rounds_df['fl_round'].max()+1, 1)
+        axes[i] = fig_aesthetics(ax=axes[i], xticks=xticks, best_model_round=best_model_round,
+                                 title_center=title_center, title_right=title_right)
+
+    # Last subplot
+    last_ax = len(clients)
+    avg_val_loss_clients = pd.read_csv(os.path.join(workspace_dir_path, 'avg_val_loss_clients.csv'))
+    axes[last_ax].plot(avg_val_loss_clients['fl_rounds'], avg_val_loss_clients['avg_val_loss_clients'],
+                       color='black', label='avg validation\nacross clients')
+    axes[last_ax].legend(fontsize=14, loc='upper right')
+    title_right = 'Server'
+    xticks = np.arange(avg_val_loss_clients['fl_rounds'].min(), avg_val_loss_clients['fl_rounds'].max() + 1, 1)
+    xlabel = 'FL rounds'
+    axes[last_ax] = fig_aesthetics(ax=axes[last_ax], xticks=xticks, best_model_round=best_model_round,
+                                   title_right=title_right, xlabel=xlabel)
 
     return fig, axes
+
+
+def fig_aesthetics(ax, xticks, best_model_round, title_center=None, title_right=None, xlabel=None):
+    ax.set_xticks(xticks)
+    ax.tick_params(axis='x', labelsize=12)
+    ax.tick_params(axis='y', labelsize=12)
+    ax.set_ylabel('MAE', fontsize=18)
+    ax.axvline(x=best_model_round, color='#808080')
+    y_text = ax.get_ylim()[0] + 0.67 * (ax.get_ylim()[1] - ax.get_ylim()[0])
+    ax.text(x=best_model_round + 0.25, y=y_text, s='final model', color='#808080', fontsize=14, rotation=90)
+    if title_center is not None:
+        ax.set_title(title_center, fontsize=14)
+    if title_right is not None:
+        ax.set_title(title_right, loc='right', fontsize=14)
+    if xlabel is not None:
+        ax.set_xlabel(xlabel, fontsize=18)
+
+    return ax
 
 
 if __name__ == "__main__":
