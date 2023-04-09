@@ -26,7 +26,7 @@ logger = paramiko.util.logging.getLogger()
 logger.setLevel(paramiko.util.logging.WARN)
 
 
-def client(settings_path, other_clients):
+def client(settings_path, clients_to_test):
     # Extract settings
     with open(settings_path, 'r') as json_file:
         settings_dict = json.load(json_file)
@@ -187,19 +187,21 @@ def client(settings_path, other_clients):
         file.write(f'Final model {client_name}: {best_model_path}')
     send_file(server_ip_address, server_username, server_password, final_model_txt_path)
 
-    # Wait for models from other clients
     test_df = pd.DataFrame()
-    for other_client in other_clients:
-        print(f'==> Waiting for {other_client} model...')
-        other_client_model_path = os.path.join(workspace_path_client_specific,
-                                               f'final_client-specific_model_{other_client}.pt')
-        wait_for_file(other_client_model_path.replace('.pt', '_transfer_completed.txt'))
-        print('==> Testing final model...')
-        other_client_model = get_weights(net_architecture, other_client_model_path)
-        test_loss, true_labels_test, pred_labels_test = evaluate(other_client_model, test_loader, criterion, device, 'test')
+    for client_to_test in clients_to_test:
+        client_model_path = os.path.join(workspace_path_client_specific,
+                                         f'final_client-specific_model_{client_to_test}.pt')
+        # Only wait for model if expecting model from another client
+        if client_to_test != client_name:
+            print(f'==> Waiting for {client_to_test} model...')
+            wait_for_file(client_model_path.replace('.pt', '_transfer_completed.txt'))
+        print(f'==> Testing final model ({client_to_test})...')
+        client_model = get_weights(net_architecture, client_model_path)
+        test_loss, true_labels_test, pred_labels_test = evaluate(client_model, test_loader, criterion, device, 'test')
         test_mae = mean_absolute_error(true_labels_test, pred_labels_test)
-        row = pd.DataFrame({'client': [other_client], 'test_loss': [test_loss], 'test_mae': [test_mae]})
+        row = pd.DataFrame({'client': [client_to_test], 'test_loss': [test_loss], 'test_mae': [test_mae]})
         test_df = pd.concat([test_df, row], axis = 0)
+
     print('==> Sending test results to server...')
     test_df_path = os.path.join(workspace_path_client_specific, f'test_results_{client_name}.csv')
     test_df.to_csv(test_df_path, index=False)
@@ -243,8 +245,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--settings_path', type=str, help='Path to the settings JSON')
     parser.add_argument('--client_or_server', type=str, help='Choose either "client" or "server"')
-    parser.add_argument('--other_clients', nargs='+', required=False,
-                        help='Client argument, name of centers to expect a model from')
+    parser.add_argument('--clients_to_test', nargs='+', required=False,
+                        help='Client argument, name of centers to expect a model from (list all client centers)')
     args = parser.parse_args()
 
     print('\n\n====================================\n'
@@ -254,4 +256,4 @@ if __name__ == "__main__":
     if args.client_or_server == 'server':
         server(args.settings_path)
     elif args.client_or_server == 'client':
-        client(args.settings_path, args.other_clients)
+        client(args.settings_path, args.clients_to_test)
