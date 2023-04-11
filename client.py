@@ -16,6 +16,7 @@ import paramiko
 import pandas as pd
 import torch.nn as nn
 from scp import SCPClient
+import scipy.stats as stats
 from monai.networks.nets import DenseNet
 from sklearn.metrics import mean_absolute_error
 from DL_utils.data import get_data_loader, split_data
@@ -326,8 +327,10 @@ if __name__ == "__main__":
     global_net = get_weights(net_architecture, final_model_path)
     test_loss, true_labels_test, pred_labels_test = evaluate(global_net, test_loader, criterion, device, 'test')
     test_mae = mean_absolute_error(true_labels_test, pred_labels_test)
+    r_true_pred, p_true_pred = stats.pearsonr(true_labels_test, pred_labels_test)
     print('==> Sending test results to server...')
-    test_df = pd.DataFrame({'test_loss': [test_loss], 'test_mae': [test_mae]})
+    test_df = pd.DataFrame({'test_loss': [test_loss], 'test_mae': [test_mae],
+                            'r_true_pred': [r_true_pred], 'p_true_pred': [p_true_pred]})
     test_df_path = os.path.join(workspace_path, f'test_results_{client_name}.csv')
     test_df.to_csv(test_df_path, index=False)
     send_file(server_ip_address, server_username, server_password, test_df_path)

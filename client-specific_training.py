@@ -12,6 +12,7 @@ import argparse
 import paramiko
 import pandas as pd
 import torch.nn as nn
+import scipy.stats as stats
 from sklearn.metrics import mean_absolute_error
 from monai.networks.nets import DenseNet
 from DL_utils.data import get_data_loader, split_data
@@ -199,7 +200,9 @@ def client(settings_path, clients_to_test):
         client_model = get_weights(net_architecture, client_model_path)
         test_loss, true_labels_test, pred_labels_test = evaluate(client_model, test_loader, criterion, device, 'test')
         test_mae = mean_absolute_error(true_labels_test, pred_labels_test)
-        row = pd.DataFrame({'client': [client_to_test], 'test_loss': [test_loss], 'test_mae': [test_mae]})
+        r_true_pred, p_true_pred = stats.pearsonr(true_labels_test, pred_labels_test)
+        row = pd.DataFrame({'client': [client_to_test], 'test_loss': [test_loss], 'test_mae': [test_mae],
+                            'r_true_pred': [r_true_pred], 'p_true_pred': [p_true_pred]})
         test_df = pd.concat([test_df, row], axis = 0)
 
     print('==> Sending test results to server...')
