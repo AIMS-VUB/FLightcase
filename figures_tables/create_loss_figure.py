@@ -62,11 +62,11 @@ def create_loss_figure(workspace_dir_path, fig_width, clients, server_FL_setting
     # Last subplot
     last_ax = len(clients)
     avg_val_loss_clients = pd.read_csv(os.path.join(workspace_dir_path, 'avg_val_loss_clients.csv'))
-    axes[last_ax].plot(avg_val_loss_clients['fl_rounds'], avg_val_loss_clients['avg_val_loss_clients'],
+    axes[last_ax].plot(avg_val_loss_clients['fl_round'], avg_val_loss_clients['avg_val_loss_clients'],
                        color='black', label='avg validation\nacross clients')
     axes[last_ax].legend(fontsize=14, loc='upper right')
     title_right = 'Server'
-    xticks = np.arange(avg_val_loss_clients['fl_rounds'].min(), avg_val_loss_clients['fl_rounds'].max() + 1, 1)
+    xticks = np.arange(avg_val_loss_clients['fl_round'].min(), avg_val_loss_clients['fl_round'].max() + 1, 1)
     xlabel = 'FL rounds'
     axes[last_ax] = fig_aesthetics(ax=axes[last_ax], xticks=xticks, best_model_round=best_model_round,
                                    title_right=title_right, xlabel=xlabel)
