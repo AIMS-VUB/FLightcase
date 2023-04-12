@@ -148,6 +148,20 @@ def get_net_weighted_average_fc(net_architecture, path_error_dict):
     return net_with_weighted_avg_fc
 
 
+def get_criterion(criterion_txt):
+    if criterion_txt == 'l1loss':
+        return nn.L1Loss(reduction='sum')
+    else:
+        raise ValueError(f'Cannot find criterion for {criterion_txt}')
+
+
+def get_optimizer(optimizer_txt, net, lr):
+    if optimizer_txt == 'adam':
+        return torch.optim.Adam(net.parameters(), lr=lr)
+    else:
+        raise ValueError(f'Cannot find optimizer for {optimizer_txt}')
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog='Client',
@@ -207,6 +221,8 @@ if __name__ == "__main__":
     lr = float(FL_plan_dict.get('lr'))                              # Learning rate
     lr_reduce_factor = float(FL_plan_dict.get('lr_reduce_factor'))  # Factor by which to reduce LR on Plateau
     patience_lr_reduction = int(FL_plan_dict.get('pat_lr_red'))     # N fl rounds stagnating val loss before reducing lr
+    criterion_txt = FL_plan_dict.get('criterion')                   # Criterion in txt format, lowercase (e.g. l1loss)
+    optimizer_txt = FL_plan_dict.get('optimizer')                   # Optimizer in txt format, lowercase (e.g. adam)
 
     # Send dataset size to server
     print('==> Send dataset size to server...')
@@ -218,7 +234,7 @@ if __name__ == "__main__":
     send_file(server_ip_address, server_username, server_password, dataset_size_txt_path)
 
     # General deep learning settings
-    criterion = nn.L1Loss(reduction='sum')
+    criterion = get_criterion(criterion_txt)
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     net_architecture = DenseNet(3, 1, 1)
     test_loader = None
@@ -255,7 +271,7 @@ if __name__ == "__main__":
         global_net = prepare_for_transfer_learning(global_net)
 
         # Deep learning settings per FL round
-        optimizer = torch.optim.Adam(global_net.parameters(), lr=lr)
+        optimizer = get_optimizer(optimizer_txt, global_net, lr)
 
         # Initiate variables
         path_error_dict = {}
