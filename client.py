@@ -288,6 +288,12 @@ if __name__ == "__main__":
             val_loader, n_val = get_data_loader(val_df, 'validation', colnames_dict, batch_size, return_n=True)
             test_loader, n_test = get_data_loader(val_df, 'test', colnames_dict, batch_size, return_n=True)
 
+            if split_i == 0:
+                test_gt_dist_txt_path = os.path.join(workspace_path, f'test_gt_dist_{client_name}.txt')
+                with open(test_gt_dist_txt_path, 'w') as txt_file:
+                    txt_file.write(f'{test_df[colname_label].describe()}')
+                send_file(server_ip_address, server_username, server_password, test_gt_dist_txt_path)
+
             # Train
             print('==> Start training...')
             best_model_path, train_loss_list, val_loss_list = train(1, device, train_loader, val_loader, optimizer,
