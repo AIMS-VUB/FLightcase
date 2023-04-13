@@ -295,3 +295,12 @@ if __name__ == "__main__":
         print(f'     ==> Sending to {client_name}')
         client_ip_address = credentials.get('ip_address')
         send_file(client_ip_address, credentials.get('username'), credentials.get('password'), final_model_path)
+
+    # Calculate overall test MAE
+    test_mae_overall = 0
+    for client_name, n_client in client_dataset_size_dict.items():
+        test_df_client = pd.read_csv(os.path.join(workspace_path, f'test_results_{client_name}.csv'))
+        test_mae_client = test_df_client['test_mae'].iloc[0]
+        test_mae_overall += test_mae_client * n_client / sum(client_dataset_size_dict.values())
+    with open(os.path.join(workspace_path, 'overall_test_mae.txt'), 'w') as txt_file:
+        txt_file.write(f'Overall test MAE: {test_mae_overall}')
