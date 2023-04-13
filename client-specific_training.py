@@ -77,6 +77,15 @@ def client(settings_path, clients_to_test):
     patience_lr_reduction = int(FL_plan_dict.get('pat_lr_red'))     # N rounds stagnating val loss before reducing lr
     patience_stop = int(FL_plan_dict.get('pat_stop'))               # N rounds stagnating val loss before stopping
 
+    # Send dataset size to server
+    print('==> Send dataset size to server...')
+    dataset_size = df.shape[0]
+    dataset_size_txt_path = os.path.join(workspace_path_client_specific, f'{client_name}_dataset_size.txt')
+    with open(dataset_size_txt_path, 'w') as file:
+        file.write(str(dataset_size))
+
+    send_file(server_ip_address, server_username, server_password, dataset_size_txt_path)
+
     # General deep learning settings
     criterion = nn.L1Loss(reduction='sum')
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -242,6 +251,30 @@ def server(settings_path):
             other_client_username = client_credentials_dict.get(other_client_name).get('username')
             other_client_password = client_credentials_dict.get(other_client_name).get('password')
             send_file(other_client_ip_address, other_client_username, other_client_password, client_model_path)
+
+    # Get overall test MAE per client model
+    print('==> Get overall test MAE per client model...')
+    # Get dataset sizes
+    client_dataset_size_dict = {}
+    for client_name in client_credentials_dict.keys():
+        # Get client size
+        with open(os.path.join(workspace_path_client_specific, f'{client_name}_dataset_size.txt'), 'r') as txt_file:
+            n_client = int(txt_file.read())
+        client_dataset_size_dict.update({client_name: n_client})
+
+    # Create dictionary with overall test MAE per client model and save to dataframe
+    overall_test_mae_dict = {}
+    for client_name in client_credentials_dict.keys():
+        overall_test_mae = 0
+        print(f'    ==> Wait for test results {client_name}...')
+        test_results_txt_path = os.path.join(workspace_path_client_specific, f'test_results_{client_name}_transfer_completed.txt')
+        wait_for_file(test_results_txt_path)
+        client_test_df = pd.read_csv(test_results_txt_path.replace('_transfer_completed.txt', '.csv'))
+        for i, row in client_test_df.iterrows():
+            overall_test_mae += (client_dataset_size_dict.get(row['client']) * row['test_mae']) / sum(client_dataset_size_dict.values())
+        overall_test_mae_dict.update({f'{client_name}_model': overall_test_mae})
+    overall_test_mae_df = pd.DataFrame(overall_test_mae_dict, index=['overall_test_mae'])
+    overall_test_mae_df.to_csv(os.path.join(workspace_path_client_specific, 'overall_test_mae_results.csv'))
 
 
 if __name__ == "__main__":
