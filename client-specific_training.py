@@ -211,9 +211,6 @@ def client(settings_path, clients_to_test):
         test_loss, true_labels_test, pred_labels_test = evaluate(client_model, test_loader, criterion, device, 'test')
         test_mae = mean_absolute_error(true_labels_test, pred_labels_test)
         r_true_pred, p_true_pred = stats.pearsonr(true_labels_test, pred_labels_test)
-        row = pd.DataFrame({'client': [client_to_test], 'test_loss': [test_loss], 'test_mae': [test_mae],
-                            'r_true_pred': [r_true_pred], 'p_true_pred': [p_true_pred]})
-        test_df = pd.concat([test_df, row], axis = 0)
 
         # Save predictions and ground truth to client-specific workspace
         true_pred_test_df = pd.DataFrame({'true': true_labels_test, 'pred': pred_labels_test})
@@ -228,6 +225,30 @@ def client(settings_path, clients_to_test):
         ax.set_ylabel('Pred')
         plt.savefig(os.path.join(workspace_path_client_specific,
                                  f'scatterplot_true_pred_test_model_{client_to_test}_data_{client_name}.png'))
+
+        # Fill dataframe with results for server
+        stat_sw_true, p_sw_true = stats.shapiro(true_pred_test_df['true'])
+        stat_sw_pred, p_sw_pred = stats.shapiro(true_pred_test_df['pred'])
+        row = pd.DataFrame({
+            'client': [client_to_test],
+            'test_loss': [test_loss],
+            'test_mae': [test_mae],
+            'r_true_pred': [r_true_pred],
+            'p_true_pred': [p_true_pred],
+            'true_mean': [true_pred_test_df['true'].describe()['mean']],
+            'true_sd': [true_pred_test_df['true'].describe()['std']],
+            'true_skewness': [stats.skew(true_pred_test_df['true'])],
+            'true_kurtosis': [stats.kurtosis(true_pred_test_df['true'])],
+            'true_shapiro-wilk_stat': [stat_sw_true],
+            'true_shapiro-wilk_p': [p_sw_true],
+            'pred_mean': [true_pred_test_df['pred'].describe()['mean']],
+            'pred_sd': [true_pred_test_df['pred'].describe()['std']],
+            'pred_skewness': [stats.skew(true_pred_test_df['pred'])],
+            'pred_kurtosis': [stats.kurtosis(true_pred_test_df['pred'])],
+            'pred_shapiro-wilk_stat': [stat_sw_pred],
+            'pred_shapiro-wilk_p': [p_sw_pred]
+        })
+        test_df = pd.concat([test_df, row], axis=0)
 
     # Send results to server
     print('==> Sending test results to server...')

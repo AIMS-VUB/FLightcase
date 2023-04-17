@@ -366,8 +366,26 @@ if __name__ == "__main__":
 
     # Send results to server
     print('==> Sending test results to server...')
-    test_df = pd.DataFrame({'test_loss': [test_loss], 'test_mae': [test_mae],
-                            'r_true_pred': [r_true_pred], 'p_true_pred': [p_true_pred]})
+    stat_sw_true, p_sw_true = stats.shapiro(true_pred_test_df['true'])
+    stat_sw_pred, p_sw_pred = stats.shapiro(true_pred_test_df['pred'])
+    test_df = pd.DataFrame({
+        'test_loss': [test_loss],
+        'test_mae': [test_mae],
+        'r_true_pred': [r_true_pred],
+        'p_true_pred': [p_true_pred],
+        'true_mean': [true_pred_test_df['true'].describe()['mean']],
+        'true_sd': [true_pred_test_df['true'].describe()['std']],
+        'true_skewness': [stats.skew(true_pred_test_df['true'])],
+        'true_kurtosis': [stats.kurtosis(true_pred_test_df['true'])],
+        'true_shapiro-wilk_stat': [stat_sw_true],
+        'true_shapiro-wilk_p': [p_sw_true],
+        'pred_mean': [true_pred_test_df['pred'].describe()['mean']],
+        'pred_sd': [true_pred_test_df['pred'].describe()['std']],
+        'pred_skewness': [stats.skew(true_pred_test_df['pred'])],
+        'pred_kurtosis': [stats.kurtosis(true_pred_test_df['pred'])],
+        'pred_shapiro-wilk_stat': [stat_sw_pred],
+        'pred_shapiro-wilk_p': [p_sw_pred]
+    })
     test_df_path = os.path.join(workspace_path, f'test_results_{client_name}.csv')
     test_df.to_csv(test_df_path, index=False)
     send_file(server_ip_address, server_username, server_password, test_df_path)
