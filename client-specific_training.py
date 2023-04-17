@@ -13,6 +13,7 @@ import paramiko
 import pandas as pd
 import torch.nn as nn
 import scipy.stats as stats
+import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error
 from monai.networks.nets import DenseNet
 from DL_utils.data import get_data_loader, split_data
@@ -214,6 +215,21 @@ def client(settings_path, clients_to_test):
                             'r_true_pred': [r_true_pred], 'p_true_pred': [p_true_pred]})
         test_df = pd.concat([test_df, row], axis = 0)
 
+        # Save predictions and ground truth to client-specific workspace
+        true_pred_test_df = pd.DataFrame({'true': true_labels_test, 'pred': pred_labels_test})
+        true_pred_test_df.to_csv(os.path.join(workspace_path_client_specific, f'true_pred_test_model_{client_to_test}_data_{client_name}.csv'))
+
+        # Create scatterplot
+        fig, ax = plt.subplots()
+        ax.scatter(x=true_labels_test, y=pred_labels_test)
+        ax.set_title(
+            f'Test performance {client_name}:\nMAE: {test_mae:.2f}, r: {r_true_pred:.2f} (p: {p_true_pred:.3f})')
+        ax.set_xlabel('True')
+        ax.set_ylabel('Pred')
+        plt.savefig(os.path.join(workspace_path_client_specific,
+                                 f'scatterplot_true_pred_test_model_{client_to_test}_data_{client_name}.png'))
+
+    # Send results to server
     print('==> Sending test results to server...')
     test_df_path = os.path.join(workspace_path_client_specific, f'test_results_{client_name}.csv')
     test_df.to_csv(test_df_path, index=False)
