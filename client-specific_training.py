@@ -134,7 +134,7 @@ def client(settings_path, clients_to_test):
                                                    train_test_random_state=42, train_val_random_state=random_state)
             train_loader, n_train = get_data_loader(train_df, 'train', colnames_dict, batch_size, return_n=True)
             val_loader, n_val = get_data_loader(val_df, 'validation', colnames_dict, batch_size, return_n=True)
-            test_loader, n_test = get_data_loader(val_df, 'test', colnames_dict, batch_size, return_n=True)
+            test_loader, n_test = get_data_loader(test_df, 'test', colnames_dict, batch_size, return_n=True)
 
             # Train
             print('==> Start training...')
