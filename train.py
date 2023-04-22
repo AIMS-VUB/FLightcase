@@ -106,7 +106,7 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
             best_loss = val_loss
             best_model_path = os.path.join(
                 state_dict_output_dir_path,
-                f'{str(dt.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))}.pt'
+                f'{str(dt.datetime.now().strftime("%Y-%m-%d_%Hh%Mm%Ss"))}.pt'
             )
             torch.save(net.state_dict(), best_model_path)
             n_worse_epochs = 0
