@@ -50,8 +50,10 @@ def send_file(remote_ip_address, username, password, file_path):
     :param file_path: str, path to local file to share
     """
     # Create ssh and scp client
+    # Source to fix issue "scp.SCPException: Timeout waiting for scp response":
+    # ==> https://github.com/ktbyers/netmiko/issues/1254
     ssh = createSSHClient(remote_ip_address, 22, username, password)
-    scp = SCPClient(ssh.get_transport())
+    scp = SCPClient(ssh.get_transport(), socket_timeout=60)
 
     # Share model with client
     scp.put(file_path, remote_path=file_path)
@@ -114,6 +116,27 @@ def get_n_random_pairs_from_dict(input_dict, n, random_seed=None):
     return output_dict
 
 
+def get_parameters(model, transfer_learning):
+    """ Get total and trainable parameters of a torch neural network
+    Source: https://stackoverflow.com/questions/49201236/check-the-total-number-of-parameters-in-a-pytorch-model
+
+    :param model: torch neural network
+    :param transfer_learning: bool, freeze all weights except fully connected layer?
+    """
+
+    if transfer_learning:
+        # Freeze all weights in the network
+        for param in model.parameters():
+            param.requires_grad = False
+        # Unfreeze weights of the fully connected layer
+        for param in model.class_layers.out.parameters():
+            param.requires_grad = True
+    total_parameters_dict = {name: p.numel() for name, p in model.named_parameters()}
+    trainable_parameters_dict = {name: p.numel() for name, p in model.named_parameters() if p.requires_grad}
+
+    return total_parameters_dict, trainable_parameters_dict
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog='Server',
@@ -143,9 +166,10 @@ if __name__ == "__main__":
 
     # Send FL plan to all clients
     print(f'==> Sending FL plan to all clients...')
-    for ip_address, credentials in client_credentials_dict.items():
-        print(f'    ==> Sending to {ip_address} ...')
-        send_file(ip_address, credentials.get('username'), credentials.get('password'),
+    for client_name, credentials in client_credentials_dict.items():
+        print(f'    ==> Sending to {client_name} ...')
+        client_ip_address = credentials.get('ip_address')
+        send_file(client_ip_address, credentials.get('username'), credentials.get('password'),
                   os.path.join(workspace_path, 'FL_plan.json'))
 
     # Extract FL plan
@@ -153,21 +177,22 @@ if __name__ == "__main__":
         FL_plan_dict = json.load(json_file)
     n_rounds = int(FL_plan_dict.get('n_rounds'))                    # Number of FL rounds
     n_clients_set = FL_plan_dict.get('n_clients_set')               # Number of clients in set for averaging
-    lr = float(FL_plan_dict.get('lr'))                              # Learning rate
-    lr_reduce_factor = float(FL_plan_dict.get('lr_reduce_factor'))  # Factor by which to reduce LR on Plateau
-    patience_lr_reduction = int(FL_plan_dict.get('pat_lr_red'))     # N fl rounds stagnating val loss before reducing lr
     patience_stop = int(FL_plan_dict.get('pat_stop'))               # N fl rounds stagnating val loss before stopping
+    print('\n========\nFL plan:\n========\n')
+    for k, v in FL_plan_dict.items():
+        print(f'- {k}: {v}')
+    print('\n')
 
     # Wait for all clients to share their dataset size
     print('==> Collecting all client dataset sizes...')
     client_dataset_size_dict = {}
-    for client_ip_address in client_credentials_dict.keys():
-        client_dataset_txt_path = os.path.join(workspace_path, f'{client_ip_address}_dataset_size.txt')
+    for client_name in client_credentials_dict.keys():
+        client_dataset_txt_path = os.path.join(workspace_path, f'{client_name}_dataset_size.txt')
         wait_for_file(client_dataset_txt_path.replace('.txt', '_transfer_completed.txt'))
         with open(client_dataset_txt_path, 'r') as file:
             n_client = int(file.read())
-            client_dataset_size_dict.update({client_ip_address: n_client})
-            print(f'     ==> {client_ip_address}: n = {n_client}')
+            client_dataset_size_dict.update({client_name: n_client})
+            print(f'     ==> {client_name}: n = {n_client}')
 
     # Load initial network and save
     net_architecture = DenseNet(3, 1, 1)
@@ -175,82 +200,78 @@ if __name__ == "__main__":
     model_path = os.path.join(workspace_path, 'initial_model.pt')
     torch.save(global_net.state_dict(), model_path)
 
+    # Print model information: total and trainable parameters
+    total_parameters_dict, trainable_parameters_dict = get_parameters(global_net, transfer_learning=True)
+    print(f'Total number of parameters: {sum(total_parameters_dict.values())}')
+    print(f'Number of trainable parameters: {sum(trainable_parameters_dict.values())}')
+    print(f'More info trainable parameters: {trainable_parameters_dict}')
+
     # Initialize variables related to validation loss tracking
     val_loss_ref = np.inf       # Reference validation loss
-    counter_lr_red = 0          # Counter for lr reduction
     counter_stop = 0            # Counter for FL stop
+    best_model_path = None      # Best model path with lowest avg validation loss
+    avg_val_loss_clients = []   # Average validation loss across clients
 
     # Start federated learning
-    for fl_round in range(n_rounds):
+    for fl_round in range(1, n_rounds + 1):  # Start counting from 1
         print(f'\n*****************\nRound {fl_round}\n*****************\n')
         round_start_time = dt.datetime.now()
 
-        # Save FL plan with learning rate from previous round (or initial lr) and send to all clients
-        print(f'==> Sending learning rate for this round to all clients...')
-        FL_plan_round_path = os.path.join(workspace_path, f'FL_plan_round_{fl_round}.json')
-        with open(FL_plan_round_path, 'w') as json_file:
-            json.dump(FL_plan_dict, json_file)
-        for ip_address, credentials in client_credentials_dict.items():
-            print(f'    ==> Sending to {ip_address} ...')
-            send_file(ip_address, credentials.get('username'), credentials.get('password'), FL_plan_round_path)
-
         # Send global model to all clients
-        for ip_address, credentials in client_credentials_dict.items():
-            print(f'==> Sending global model to {ip_address}...')
-            send_file(ip_address, credentials.get('username'), credentials.get('password'), model_path)
+        for client_name, credentials in client_credentials_dict.items():
+            print(f'==> Sending global model to {client_name}...')
+            client_ip_address = credentials.get('ip_address')
+            send_file(client_ip_address, credentials.get('username'), credentials.get('password'), model_path)
         print('==> Model shared with all clients. Waiting for updated client models...')
-        txt_file_paths = [os.path.join(workspace_path, f'model_{ip_address}_round_{fl_round}_transfer_completed.txt')
-                          for ip_address in client_credentials_dict.keys()]
+        txt_file_paths = [os.path.join(workspace_path, f'model_{client_name}_round_{fl_round}_transfer_completed.txt')
+                          for client_name in client_credentials_dict.keys()]
         for txt_file_path in txt_file_paths:
             wait_for_file(txt_file_path)
 
         # Create new global model by combining local models
         print('==> Combining local model weights and saving...')
-        local_model_paths_dict = {ip_address: os.path.join(workspace_path, f'model_{ip_address}_round_{fl_round}.pt')
-                                  for ip_address in client_credentials_dict.keys()}
+        local_model_paths_dict = {client_name: os.path.join(workspace_path, f'model_{client_name}_round_{fl_round}.pt')
+                                  for client_name in client_credentials_dict.keys()}
         local_state_dicts_dict = {k: torch.load(v, map_location='cpu') for k, v in local_model_paths_dict.items()}
         if n_clients_set is not None:
-            local_state_dicts_dict = get_n_random_pairs_from_dict(local_state_dicts_dict, n_clients_set)
-            client_dataset_size_dict = get_n_random_pairs_from_dict(client_dataset_size_dict, n_clients_set)
-            print(f'    ==> Clients in sample: {list(local_state_dicts_dict.keys())}')
-        new_global_state_dict = weighted_avg_local_models(local_state_dicts_dict, client_dataset_size_dict)
+            local_state_dicts_dict = get_n_random_pairs_from_dict(local_state_dicts_dict, n_clients_set, fl_round)
+            print(f'    ==> Clients in sample (random seed = {fl_round}): {list(local_state_dicts_dict.keys())}')
+        new_global_state_dict = weighted_avg_local_models(local_state_dicts_dict,
+                                                          {k: client_dataset_size_dict.get(k)
+                                                           for k in local_state_dicts_dict.keys()})
         model_path = os.path.join(workspace_path, f'global_model_round_{fl_round}.pt')  # Overwrite model_path
         torch.save(new_global_state_dict, model_path)
 
-        # Update learning rate
-        # - Calculate average validation loss
+        # Calculate average validation loss
         val_loss_avg = 0
-        print('==> Updating learning rate...')
-        for client_ip_address in client_credentials_dict.keys():
+        print('==> Average validation loss tracking...')
+        for client_name in client_credentials_dict.keys():
             wait_for_file(os.path.join(
-                workspace_path, f'train_results_{client_ip_address}_round_{fl_round}_transfer_completed.txt'
+                workspace_path, f'train_results_{client_name}_round_{fl_round}_transfer_completed.txt'
             ))
-            filename = f'train_results_{client_ip_address}_round_{fl_round}.csv'
+            filename = f'train_results_{client_name}_round_{fl_round}.csv'
             train_results_client_df = pd.read_csv(os.path.join(workspace_path, filename))
-            val_loss_avg += train_results_client_df['val_loss'].min() / len(client_credentials_dict)
+            val_loss_avg += train_results_client_df['val_loss'].mean() / len(client_credentials_dict)
         print(f'     ==> val loss ref: {val_loss_ref} || val loss avg: {val_loss_avg}')
+        avg_val_loss_clients.append(val_loss_avg)
 
-        # - Perform actions based on average validation loss
+        # Perform actions based on average validation loss
         if val_loss_avg < val_loss_ref:         # Improvement
             val_loss_ref = val_loss_avg
-            counter_lr_red = 0
             counter_stop = 0
+            best_model_path = model_path
         else:                                   # No improvement
-            counter_lr_red += 1
             counter_stop += 1
-            if counter_lr_red == patience_lr_reduction:
-                lr *= lr_reduce_factor
-                FL_plan_dict['lr'] = lr
-                counter_lr_red = 0
             if counter_stop == patience_stop:
                 stop_txt_file_path = os.path.join(workspace_path, 'stop_training.txt')
                 with open(stop_txt_file_path, 'w') as txt_file:
                     txt_file.write('This file causes early FL stopping')
-                for ip_address, credentials in client_credentials_dict.items():
-                    print(f'==> Sending stop txt file to {ip_address}...')
-                    send_file(ip_address, credentials.get('username'), credentials.get('password'), stop_txt_file_path)
+                for client_name, credentials in client_credentials_dict.items():
+                    print(f'==> Sending stop txt file to {client_name}...')
+                    client_ip_address = credentials.get('ip_address')
+                    send_file(client_ip_address, credentials.get('username'), credentials.get('password'),
+                              stop_txt_file_path)
                 break
-        print(f'     ==> lr reduction counter: {counter_lr_red}')
         print(f'     ==> lr stop counter: {counter_stop}')
 
         # Time tracking
@@ -259,10 +280,31 @@ if __name__ == "__main__":
         ETA = (round_stop_time + round_duration * (n_rounds - fl_round - 1)).strftime('%Y/%m/%d, %H:%M:%S')
         print(f'Round time: {round_duration / 60} min || ETA: {ETA}')
 
+    # Create dataframe with average validation loss across clients
+    avg_val_loss_df = pd.DataFrame({'avg_val_loss_clients': avg_val_loss_clients,
+                                    'fl_round': range(1, fl_round+1)})
+    avg_val_loss_df.to_csv(os.path.join(workspace_path, 'avg_val_loss_clients.csv'), index = False)
+
     # Copy final model path and send to clients
     final_model_path = os.path.join(workspace_path, "final_model.pt")
-    os.system(f'cp {model_path} {final_model_path}')
-    print('==> Sending final model to all clients...')
-    for ip_address, credentials in client_credentials_dict.items():
-        print(f'     ==> Sending to {ip_address}')
-        send_file(ip_address, credentials.get('username'), credentials.get('password'), final_model_path)
+    os.system(f'cp {best_model_path} {final_model_path}')
+    print(f'==> Sending final model ({os.path.basename(best_model_path)}) to all clients...')
+    with open(os.path.join(workspace_path, 'final_model.txt'), 'w') as txt_file:
+        txt_file.write(best_model_path)
+    for client_name, credentials in client_credentials_dict.items():
+        print(f'     ==> Sending to {client_name}')
+        client_ip_address = credentials.get('ip_address')
+        send_file(client_ip_address, credentials.get('username'), credentials.get('password'), final_model_path)
+
+    # Calculate overall test MAE
+    print('==> Calculate overall test MAE...')
+    test_mae_overall = 0
+    for client_name, n_client in client_dataset_size_dict.items():
+        print(f'    ==> Wait for test results {client_name}...')
+        test_results_txt_path = os.path.join(workspace_path, f'test_results_{client_name}_transfer_completed.txt')
+        wait_for_file(test_results_txt_path)
+        test_df_client = pd.read_csv(test_results_txt_path.replace('_transfer_completed.txt', '.csv'))
+        test_mae_client = test_df_client['test_mae'].iloc[0]
+        test_mae_overall += test_mae_client * n_client / sum(client_dataset_size_dict.values())
+    with open(os.path.join(workspace_path, 'overall_test_mae.txt'), 'w') as txt_file:
+        txt_file.write(f'Overall test MAE: {test_mae_overall}')

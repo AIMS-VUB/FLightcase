@@ -1,10 +1,11 @@
 # Adapted from requirements.txt of Wood_2022 submodule (antspyx==0.3.2 was removed from PyPI)
+# Use torch==1.13.1 since torch==1.7.1 does not work with newer versions of CUDA
 monai==0.4.0
 nibabel==3.2.1
 matplotlib==3.3.3
 numpy==1.19.4
 pandas==1.1.5
-torch==1.7.1
+torch==1.13.1
 xlrd==1.2.0
 tqdm==4.62.3
 antspyx==0.3.5

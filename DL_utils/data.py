@@ -83,7 +83,7 @@ def split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction, o
     return train_df, val_df, test_df
 
 
-def get_data_loader(df, purpose, colnames_dict, batch_size, return_n=False):
+def get_data_loader(df, purpose, colnames_dict, batch_size, return_n=False, print_n=False):
     """ Get data loader from dataframe
 
     :param df: pd DataFrame
@@ -91,6 +91,7 @@ def get_data_loader(df, purpose, colnames_dict, batch_size, return_n=False):
     :param colnames_dict: dict, necessary keys: "id", "img_path" and "label"
     :param batch_size: int, batch size
     :param return_n: bool, return the number of subjects as an additional output?
+    :param print_n: bool, print the number of subjects?
     :return: Torch DataLoader (train, validation and test), [optional] int, number of subjects
     """
 
@@ -98,7 +99,9 @@ def get_data_loader(df, purpose, colnames_dict, batch_size, return_n=False):
     loader = DataLoader(dataset, batch_size=batch_size)
     n = len(dataset)
 
-    print(f'Number of {purpose} scans: {n}')
+    if print_n:
+        print(f'Number of {purpose} scans: {n}')
+
     if return_n:
         return loader, n
     else:
