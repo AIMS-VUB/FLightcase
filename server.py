@@ -150,6 +150,9 @@ if __name__ == "__main__":
 
     print('\n\n==============================\nStarting federated learning :)\n==============================\n\n')
 
+    # FL start time
+    fl_start_time = dt.datetime.now()
+
     # Extract settings
     with open(settings_path, 'r') as json_file:
         settings_dict = json.load(json_file)
@@ -308,3 +311,8 @@ if __name__ == "__main__":
         test_mae_overall += test_mae_client * n_client / sum(client_dataset_size_dict.values())
     with open(os.path.join(workspace_path, 'overall_test_mae.txt'), 'w') as txt_file:
         txt_file.write(f'Overall test MAE: {test_mae_overall}')
+
+    # Print total FL duration
+    fl_stop_time = dt.datetime.now()
+    fl_duration = fl_stop_time - fl_start_time
+    print(f'Total federated learning duration: {fl_duration/3600} hrs')
