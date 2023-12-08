@@ -86,18 +86,50 @@ def wait_for_file(file_path, stop_with_stop_file = False):
     return stop_file_present
 
 
-def prepare_for_transfer_learning(net):
+def prepare_for_transfer_learning(net, method, print_trainable_params=False):
     """
     Prepare torch neural network for transfer learning
     ==> freeze all weights except those in the fully connected layer
+    :param net: Torch net
+    :param method: str, method of transfer learning. Choose from:
+        ['no_tl', 'freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']
+    :param print_trainable_params: bool
     """
-    # Freeze all weights in the network
-    for param in net.parameters():
-        param.requires_grad = False
-    # Unfreeze weights of the fully connected layer
-    for param in net.class_layers.out.parameters():
-        param.requires_grad = True
+
+    if method in ['freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
+        # Gradually freeze layers
+        freeze(net.features.conv0.parameters())
+        freeze(net.features.norm0.parameters())
+        freeze(net.features.relu0.parameters())
+        freeze(net.features.pool0.parameters())
+        freeze(net.features.denseblock1.parameters())
+        freeze(net.features.transition1.parameters())
+        if method in ['freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
+            freeze(net.features.denseblock2.parameters())
+            freeze(net.features.transition2.parameters())
+            if method in ['freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
+                freeze(net.features.denseblock3.parameters())
+                freeze(net.features.transition3.parameters())
+                if method in ['freeze_up_to_norm_5']:
+                    # Note: This is the same as only unfreezing weights in class_layers.out
+                    # Relu, pool and flatten do not contain trainable parameters
+                    freeze(net.features.denseblock4.parameters())
+                    freeze(net.features.norm5.parameters())
+
+    elif method == 'no_tl':
+        pass
+    else:
+        raise ValueError('Transfer learning method not recognised')
+
+    # Print number of trainable parameters
+    if print_trainable_params:
+        print('Number of trainable parameters: ', sum(p.numel() for p in net.parameters() if p.requires_grad))
     return net
+
+
+def freeze(parameters):
+    for param in parameters:
+        param.requires_grad = False
 
 
 def copy_net(net):
@@ -224,6 +256,7 @@ if __name__ == "__main__":
     patience_lr_reduction = int(FL_plan_dict.get('pat_lr_red'))     # N fl rounds stagnating val loss before reducing lr
     criterion_txt = FL_plan_dict.get('criterion')                   # Criterion in txt format, lowercase (e.g. l1loss)
     optimizer_txt = FL_plan_dict.get('optimizer')                   # Optimizer in txt format, lowercase (e.g. adam)
+    tl_method = FL_plan_dict.get('tl_method')                       # Get transfer learning method
 
     # Send dataset size to server
     print('==> Send dataset size to server...')
@@ -269,7 +302,7 @@ if __name__ == "__main__":
 
         # Load global network and prepare for transfer learning
         global_net = get_weights(net_architecture, global_model_path)
-        global_net = prepare_for_transfer_learning(global_net)
+        global_net = prepare_for_transfer_learning(global_net, tl_method, print_trainable_params=True)
 
         # Deep learning settings per FL round
         optimizer = get_optimizer(optimizer_txt, global_net, lr)
