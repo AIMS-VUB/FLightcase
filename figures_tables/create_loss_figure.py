@@ -99,7 +99,7 @@ if __name__ == "__main__":
     parser.add_argument('--workspace_dir_path', type=str, help='Path to the workspace directory')
     parser.add_argument('--figure_filename', type=str, help='Filename of the figure')
     parser.add_argument('--figure_width', type=int, default=10, help='Figure width')
-    parser.add_argument('--clients', nargs='+', help='Client ip addresses')
+    parser.add_argument('--clients', nargs='+', help='Client names')
     parser.add_argument('--server_settings_path', type=str, help='Path to server settings JSON')
     parser.add_argument('--best_model_round', type=int, help='FL round with best model')
     args = parser.parse_args()
