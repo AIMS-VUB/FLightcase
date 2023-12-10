@@ -113,4 +113,4 @@ if __name__ == "__main__":
                                    args.best_model_round)
 
     # Save figure to workspace dir
-    fig.savefig(os.path.join(args.workspace_dir_path, args.figure_filename), dpi=300)
+    fig.savefig(os.path.join(args.workspace_dir_path, args.figure_filename), dpi=1000)
