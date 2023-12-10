@@ -122,7 +122,7 @@ def get_parameters(net, method):
 
     :param net: torch neural network
     :param method: str, method of transfer learning. Choose from:
-        ['no_tl', 'freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']
+        ['no_freeze', 'freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']
     """
 
     if method in ['freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
@@ -145,7 +145,7 @@ def get_parameters(net, method):
                     freeze(net.features.denseblock4.parameters())
                     freeze(net.features.norm5.parameters())
 
-    elif method == 'no_tl':
+    elif method == 'no_freeze':
         pass
     else:
         raise ValueError('Transfer learning method not recognised')

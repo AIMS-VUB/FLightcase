@@ -93,7 +93,7 @@ def prepare_for_transfer_learning(net, method, print_trainable_params=False):
     ==> freeze all weights except those in the fully connected layer
     :param net: Torch net
     :param method: str, method of transfer learning. Choose from:
-        ['no_tl', 'freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']
+        ['no_freeze', 'freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']
     :param print_trainable_params: bool
     """
 
@@ -117,7 +117,7 @@ def prepare_for_transfer_learning(net, method, print_trainable_params=False):
                     freeze(net.features.denseblock4.parameters())
                     freeze(net.features.norm5.parameters())
 
-    elif method == 'no_tl':
+    elif method == 'no_freeze':
         pass
     else:
         raise ValueError('Transfer learning method not recognised')
