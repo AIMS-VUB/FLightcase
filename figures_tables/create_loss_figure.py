@@ -56,6 +56,7 @@ def create_loss_figure(workspace_dir_path, fig_width, clients, server_FL_setting
         title_center = f'test MAE = {test_loss_client:.2f}'
         title_right = f'Client: {client}'
         xticks = np.arange(all_rounds_df['fl_round'].min(), all_rounds_df['fl_round'].max()+1, 1)
+        xticks = list(filter(lambda x: x % 5 == 0, xticks))  # Filter xticks to intervals of 5
         axes[i] = fig_aesthetics(ax=axes[i], xticks=xticks, best_model_round=best_model_round,
                                  title_center=title_center, title_right=title_right)
 
@@ -69,6 +70,7 @@ def create_loss_figure(workspace_dir_path, fig_width, clients, server_FL_setting
         title_center = f'overall test MAE: {float(txt_file.read().strip("Overall test MAE: ")):.2f}'
     title_right = 'Server'
     xticks = np.arange(avg_val_loss_clients['fl_round'].min(), avg_val_loss_clients['fl_round'].max() + 1, 1)
+    xticks = list(filter(lambda x: x%5==0, xticks))  # Filter xticks to intervals of 5
     xlabel = 'FL rounds'
     axes[last_ax] = fig_aesthetics(ax=axes[last_ax], xticks=xticks, best_model_round=best_model_round,
                                    title_center = title_center, title_right=title_right, xlabel=xlabel)
