@@ -80,18 +80,18 @@ def create_loss_figure(workspace_dir_path, fig_width, clients, server_FL_setting
 
 def fig_aesthetics(ax, xticks, best_model_round, title_center=None, title_right=None, xlabel=None):
     ax.set_xticks(xticks)
-    ax.tick_params(axis='x', labelsize=12)
-    ax.tick_params(axis='y', labelsize=12)
-    ax.set_ylabel('MAE', fontsize=18)
+    ax.tick_params(axis='x', labelsize=16)
+    ax.tick_params(axis='y', labelsize=16)
+    ax.set_ylabel('MAE', fontsize=20)
     ax.axvline(x=best_model_round, color='#808080')
     y_text = ax.get_ylim()[0] + 0.67 * (ax.get_ylim()[1] - ax.get_ylim()[0])
     ax.text(x=best_model_round + 0.25, y=y_text, s='final model', color='#808080', fontsize=14, rotation=90)
     if title_center is not None:
-        ax.set_title(title_center, fontsize=14)
+        ax.set_title(title_center, fontsize=18)
     if title_right is not None:
-        ax.set_title(title_right, loc='right', fontsize=14)
+        ax.set_title(title_right, loc='right', fontsize=18)
     if xlabel is not None:
-        ax.set_xlabel(xlabel, fontsize=18)
+        ax.set_xlabel(xlabel, fontsize=20)
 
     return ax
 
