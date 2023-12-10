@@ -230,9 +230,12 @@ if __name__ == "__main__":
 
     # Print model information: total and trainable parameters
     total_parameters_dict, trainable_parameters_dict = get_parameters(global_net, method=tl_method)
-    print(f'Total number of parameters: {sum(total_parameters_dict.values())}')
-    print(f'Number of trainable parameters: {sum(trainable_parameters_dict.values())}')
-    print(f'More info trainable parameters: {trainable_parameters_dict}')
+    parameters_info_txt = f'Total number of parameters: {sum(total_parameters_dict.values())}\n' \
+                          f'Number of trainable parameters: {sum(trainable_parameters_dict.values())}\n' \
+                          f'More info trainable parameters: {trainable_parameters_dict}'
+    print(parameters_info_txt)                                                          # Print
+    with open(os.path.join(workspace_path, 'parameters_info.txt'), 'w') as txt_file:    # Save
+        txt_file.write(parameters_info_txt)
 
     # Initialize variables related to validation loss tracking
     val_loss_ref = np.inf       # Reference validation loss
