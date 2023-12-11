@@ -81,6 +81,7 @@ def client(settings_path, clients_to_test):
     lr_reduce_factor = float(FL_plan_dict.get('lr_reduce_factor'))  # Factor by which to reduce LR on Plateau
     patience_lr_reduction = int(FL_plan_dict.get('pat_lr_red'))     # N rounds stagnating val loss before reducing lr
     patience_stop = int(FL_plan_dict.get('pat_stop'))               # N rounds stagnating val loss before stopping
+    tl_method = FL_plan_dict.get('tl_method')                       # Get transfer learning method
 
     # Send dataset size to server
     print('==> Send dataset size to server...')
@@ -119,7 +120,7 @@ def client(settings_path, clients_to_test):
 
         # Load global network and prepare for transfer learning
         global_net = get_weights(net_architecture, model_path)
-        global_net = prepare_for_transfer_learning(global_net)
+        global_net = prepare_for_transfer_learning(global_net, tl_method)
 
         # Deep learning settings per FL round
         optimizer = torch.optim.Adam(global_net.parameters(), lr=lr)
