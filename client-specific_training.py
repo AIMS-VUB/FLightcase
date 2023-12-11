@@ -25,6 +25,7 @@ from DL_utils.model import get_weights
 from DL_utils.evaluation import evaluate
 from train import train
 from client import send_file, get_weighted_average_model, wait_for_file, prepare_for_transfer_learning
+from server import get_parameters
 
 # Suppress printing of paramiko info
 # Source: https://stackoverflow.com/questions/340341/suppressing-output-of-paramiko-sshclient-class
@@ -121,6 +122,15 @@ def client(settings_path, clients_to_test):
         # Load global network and prepare for transfer learning
         global_net = get_weights(net_architecture, model_path)
         global_net = prepare_for_transfer_learning(global_net, tl_method)
+
+        # Print model information: total and trainable parameters (only first iteration)
+        if round_i == 1:  # Starts from 1
+            total_parameters_dict, trainable_parameters_dict = get_parameters(global_net, method=tl_method)
+            parameters_info_txt = f'Total number of parameters: {sum(total_parameters_dict.values())}\n' \
+                                  f'Number of trainable parameters: {sum(trainable_parameters_dict.values())}\n' \
+                                  f'More info trainable parameters: {trainable_parameters_dict}'
+            with open(os.path.join(workspace_path_client_specific, 'parameters_info.txt'), 'w') as txt_file:  # Save
+                txt_file.write(parameters_info_txt)
 
         # Deep learning settings per FL round
         optimizer = torch.optim.Adam(global_net.parameters(), lr=lr)
