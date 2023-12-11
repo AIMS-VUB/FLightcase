@@ -15,6 +15,7 @@ import argparse
 import paramiko
 import pandas as pd
 import torch.nn as nn
+import datetime as dt
 import scipy.stats as stats
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error
@@ -261,6 +262,9 @@ def client(settings_path, clients_to_test):
 
 
 def server(settings_path):
+    # FL start time
+    fl_start_time = dt.datetime.now()
+
     # Extract settings
     with open(settings_path, 'r') as json_file:
         settings_dict = json.load(json_file)
@@ -315,6 +319,11 @@ def server(settings_path):
         overall_test_mae_dict.update({f'{client_name}_model': overall_test_mae})
     overall_test_mae_df = pd.DataFrame(overall_test_mae_dict, index=['overall_test_mae'])
     overall_test_mae_df.to_csv(os.path.join(workspace_path_client_specific, 'overall_test_mae_results.csv'))
+
+    # Print total FL duration
+    fl_stop_time = dt.datetime.now()
+    fl_duration = fl_stop_time - fl_start_time
+    print(f'Total federated learning duration: {fl_duration/3600} hrs')
 
 
 if __name__ == "__main__":
