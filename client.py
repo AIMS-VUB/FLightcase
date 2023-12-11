@@ -316,6 +316,10 @@ if __name__ == "__main__":
             # Note: Fix train_test_random_state to assure test data is always the same
             train_df, val_df, test_df = split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction,
                                                    train_test_random_state=42, train_val_random_state=random_state)
+            if fl_round == 1 and split_i == 0:  # fl_round starts from 1
+                train_overall_df = pd.concat([train_df, val_df], ignore_index=True)
+                train_overall_df.to_csv(os.path.join(workspace_path, 'train_overall_df.csv'), index=False)
+                test_df.to_csv(os.path.join(workspace_path, 'test_df.csv'), index=False)
             train_loader, n_train = get_data_loader(train_df, 'train', colnames_dict, batch_size, return_n=True)
             val_loader, n_val = get_data_loader(val_df, 'validation', colnames_dict, batch_size, return_n=True)
             test_loader, n_test = get_data_loader(test_df, 'test', colnames_dict, batch_size, return_n=True)
