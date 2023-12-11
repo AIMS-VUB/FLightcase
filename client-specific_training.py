@@ -24,7 +24,7 @@ from DL_utils.data import get_data_loader, split_data
 from DL_utils.model import get_weights
 from DL_utils.evaluation import evaluate
 from train import train
-from client import send_file, get_net_weighted_average_fc, wait_for_file, prepare_for_transfer_learning
+from client import send_file, get_weighted_average_model, wait_for_file, prepare_for_transfer_learning
 
 # Suppress printing of paramiko info
 # Source: https://stackoverflow.com/questions/340341/suppressing-output-of-paramiko-sshclient-class
@@ -168,7 +168,7 @@ def client(settings_path, clients_to_test):
         send_file(server_ip_address, server_username, server_password, train_results_df_path)
 
         # Get weighted average fc model
-        model = get_net_weighted_average_fc(net_architecture, path_error_dict)
+        model = get_weighted_average_model(net_architecture, path_error_dict)
         model_path = os.path.join(workspace_path_client_specific, f'model_{client_name}_round_{round_i}.pt')
         torch.save(model.state_dict(), model_path)
 
