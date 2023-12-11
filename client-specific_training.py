@@ -2,6 +2,9 @@
 Client-specific training
 
 FL plan inspiration: https://iopscience.iop.org/article/10.1088/1361-6560/ac97d9
+
+Info:
+- Run server script first, then client scripts
 """
 
 import os

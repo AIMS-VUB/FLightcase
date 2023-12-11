@@ -4,6 +4,9 @@ Script for server of the federated learning network
 Inspiration federated learning workflow:
 - FederatedAveraging algorithm in https://arxiv.org/pdf/1602.05629.pdf
 - FL plan in https://iopscience.iop.org/article/10.1088/1361-6560/ac97d9
+
+Info:
+- Run client scripts first, then server script
 """
 
 import os
