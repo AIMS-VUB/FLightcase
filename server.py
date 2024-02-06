@@ -114,7 +114,7 @@ def get_n_random_pairs_from_dict(input_dict, n, random_seed=None):
 
     if random_seed is not None:
         random.seed(random_seed)
-    output_dict = {k: input_dict.get(k) for k in random.sample(input_dict.keys(), n)}
+    output_dict = {k: input_dict.get(k) for k in random.sample(list(input_dict.keys()), n)}
 
     return output_dict
 
