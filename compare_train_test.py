@@ -16,6 +16,10 @@ def mean_diff(x, y, axis):
     return np.mean(x, axis=axis) - np.mean(y, axis=axis)
 
 
+def median_diff(x, y, axis):
+    return np.median(x, axis=axis) - np.median(y, axis=axis)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog='Client',
@@ -98,9 +102,15 @@ if __name__ == "__main__":
            'Note: continuous (chi-squared separate script)\n' \
            '==============================================\n\n'
     for col in args.colnames_describe_method:
-        res = stats.permutation_test((train_overall_df[col], test_df[col]), statistic=mean_diff, vectorized=True,
-                                     n_resamples=100000, alternative='two-sided')
-        txt += f'{col}: Statistic = {res.statistic}, p = {res.pvalue}\n'
+        if 'edss' in col.lower():
+            perm_method = 'median'
+            res = stats.permutation_test((train_overall_df[col], test_df[col]), statistic=median_diff, vectorized=True,
+                                         n_resamples=100000, alternative='two-sided')
+        else:
+            perm_method = 'mean'
+            res = stats.permutation_test((train_overall_df[col], test_df[col]), statistic=mean_diff, vectorized=True,
+                                         n_resamples=100000, alternative='two-sided')
+        txt += f'{col}: Statistic = {res.statistic}, p = {res.pvalue} (permutation method = {perm_method})\n'
 
     with open(os.path.join(output_dir_path, 'train_test_comparison.txt'), 'w') as txt_file:
         txt_file.write(txt)
