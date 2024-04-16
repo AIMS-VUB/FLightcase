@@ -247,7 +247,7 @@ if __name__ == "__main__":
     if not os.path.exists(workspace_path):
         os.makedirs(workspace_path)
 
-    # Save filtered clinical dataframe with z-norm column to workspace path as reference
+    # Save filtered clinical dataframe to workspace path as reference
     df.to_csv(os.path.join(workspace_path, 'participants.tsv'), sep='\t')
 
     # Wait for FL plan
