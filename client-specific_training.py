@@ -77,6 +77,9 @@ def client(settings_path, clients_to_test):
     for file in ['initial_model.pt', 'FL_plan.json']:
         os.system(f'cp {os.path.join(workspace_path, file)} {os.path.join(workspace_path_client_specific, file)}')
 
+    # Save filtered clinical dataframe to workspace path as reference
+    df.to_csv(os.path.join(workspace_path_client_specific, 'participants.tsv'), sep='\t')
+
     # Extract FL plan
     FL_plan_path = os.path.join(workspace_path_client_specific, 'FL_plan.json')
     with open(FL_plan_path, 'r') as json_file:
