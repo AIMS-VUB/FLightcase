@@ -257,7 +257,8 @@ def client(settings_path, clients_to_test):
         stat_sw_true, p_sw_true = stats.shapiro(true_pred_test_df['true'])
         stat_sw_pred, p_sw_pred = stats.shapiro(true_pred_test_df['pred'])
         row = pd.DataFrame({
-            'client': [client_to_test],
+            'client_model': [client_to_test],
+            'client_test_data': [client_name],
             'test_loss': [test_loss],
             'test_mae': [test_mae],
             'r_true_pred': [r_true_pred],
@@ -331,15 +332,20 @@ def server(settings_path):
 
     # Create dictionary with overall test MAE per client model and save to dataframe
     overall_test_mae_dict = {}
-    for client_name in client_credentials_dict.keys():
-        overall_test_mae = 0
+    for client_name in client_credentials_dict.keys():  # First wait for all test dataframes to arrive
         print(f'    ==> Wait for test results {client_name}...')
-        test_results_txt_path = os.path.join(workspace_path_client_specific, f'test_results_{client_name}_transfer_completed.txt')
+        test_results_txt_path = os.path.join(workspace_path_client_specific,
+                                             f'test_results_{client_name}_transfer_completed.txt')
         wait_for_file(test_results_txt_path)
-        client_test_df = pd.read_csv(test_results_txt_path.replace('_transfer_completed.txt', '.csv'))
-        for i, row in client_test_df.iterrows():
-            overall_test_mae += (client_dataset_size_dict.get(row['client']) * row['test_mae']) / sum(client_dataset_size_dict.values())
-        overall_test_mae_dict.update({f'{client_name}_model': overall_test_mae})
+    for client_name_model in client_credentials_dict.keys():
+        overall_test_mae = 0
+        for client_name_test_data in client_credentials_dict.keys():
+            test_results_csv_path = os.path.join(workspace_path_client_specific, f'test_results_{client_name_test_data}.csv')
+            client_test_df = pd.read_csv(test_results_csv_path)
+            # Get correct row
+            row = client_test_df[client_test_df['client_model'] == client_name_model].iloc[0]
+            overall_test_mae += (client_dataset_size_dict.get(client_name_test_data) * row['test_mae']) / sum(client_dataset_size_dict.values())
+        overall_test_mae_dict.update({f'{client_name_model}_model': overall_test_mae})
     overall_test_mae_df = pd.DataFrame(overall_test_mae_dict, index=['overall_test_mae'])
     overall_test_mae_df.to_csv(os.path.join(workspace_path_client_specific, 'overall_test_mae_results.csv'))
 
