@@ -1,4 +1,3 @@
-Manh made a small adaptation to the Readme
 # FLightcase :airplane::briefcase:
 
 This repository contains the code to perform federated learning (FL) when computers are present in the same virtual private network (VPN) and are able to share models with secure copy protocol (SCP) via secure shell (SSH).
