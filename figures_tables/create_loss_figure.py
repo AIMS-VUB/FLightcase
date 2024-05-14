@@ -56,6 +56,7 @@ def create_loss_figure(workspace_dir_path, fig_width, clients, server_FL_setting
         title_center = f'test MAE = {test_loss_client:.2f}'
         title_right = f'Client: {client}'
         xticks = np.arange(all_rounds_df['fl_round'].min(), all_rounds_df['fl_round'].max()+1, 1)
+        xticks = list(filter(lambda x: x % 5 == 0, xticks))  # Filter xticks to intervals of 5
         axes[i] = fig_aesthetics(ax=axes[i], xticks=xticks, best_model_round=best_model_round,
                                  title_center=title_center, title_right=title_right)
 
@@ -69,6 +70,7 @@ def create_loss_figure(workspace_dir_path, fig_width, clients, server_FL_setting
         title_center = f'overall test MAE: {float(txt_file.read().strip("Overall test MAE: ")):.2f}'
     title_right = 'Server'
     xticks = np.arange(avg_val_loss_clients['fl_round'].min(), avg_val_loss_clients['fl_round'].max() + 1, 1)
+    xticks = list(filter(lambda x: x%5==0, xticks))  # Filter xticks to intervals of 5
     xlabel = 'FL rounds'
     axes[last_ax] = fig_aesthetics(ax=axes[last_ax], xticks=xticks, best_model_round=best_model_round,
                                    title_center = title_center, title_right=title_right, xlabel=xlabel)
@@ -78,18 +80,18 @@ def create_loss_figure(workspace_dir_path, fig_width, clients, server_FL_setting
 
 def fig_aesthetics(ax, xticks, best_model_round, title_center=None, title_right=None, xlabel=None):
     ax.set_xticks(xticks)
-    ax.tick_params(axis='x', labelsize=12)
-    ax.tick_params(axis='y', labelsize=12)
-    ax.set_ylabel('MAE', fontsize=18)
+    ax.tick_params(axis='x', labelsize=16)
+    ax.tick_params(axis='y', labelsize=16)
+    ax.set_ylabel('MAE', fontsize=20)
     ax.axvline(x=best_model_round, color='#808080')
     y_text = ax.get_ylim()[0] + 0.67 * (ax.get_ylim()[1] - ax.get_ylim()[0])
     ax.text(x=best_model_round + 0.25, y=y_text, s='final model', color='#808080', fontsize=14, rotation=90)
     if title_center is not None:
-        ax.set_title(title_center, fontsize=14)
+        ax.set_title(title_center, fontsize=18)
     if title_right is not None:
-        ax.set_title(title_right, loc='right', fontsize=14)
+        ax.set_title(title_right, loc='right', fontsize=18)
     if xlabel is not None:
-        ax.set_xlabel(xlabel, fontsize=18)
+        ax.set_xlabel(xlabel, fontsize=20)
 
     return ax
 
@@ -99,7 +101,7 @@ if __name__ == "__main__":
     parser.add_argument('--workspace_dir_path', type=str, help='Path to the workspace directory')
     parser.add_argument('--figure_filename', type=str, help='Filename of the figure')
     parser.add_argument('--figure_width', type=int, default=10, help='Figure width')
-    parser.add_argument('--clients', nargs='+', help='Client ip addresses')
+    parser.add_argument('--clients', nargs='+', help='Client names')
     parser.add_argument('--server_settings_path', type=str, help='Path to server settings JSON')
     parser.add_argument('--best_model_round', type=int, help='FL round with best model')
     args = parser.parse_args()
@@ -111,4 +113,4 @@ if __name__ == "__main__":
                                    args.best_model_round)
 
     # Save figure to workspace dir
-    fig.savefig(os.path.join(args.workspace_dir_path, args.figure_filename), dpi=300)
+    fig.savefig(os.path.join(args.workspace_dir_path, args.figure_filename), dpi=1000)

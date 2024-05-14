@@ -4,6 +4,9 @@ Script for server of the federated learning network
 Inspiration federated learning workflow:
 - FederatedAveraging algorithm in https://arxiv.org/pdf/1602.05629.pdf
 - FL plan in https://iopscience.iop.org/article/10.1088/1361-6560/ac97d9
+
+Info:
+- Run client scripts first, then server script
 """
 
 import os
@@ -111,30 +114,54 @@ def get_n_random_pairs_from_dict(input_dict, n, random_seed=None):
 
     if random_seed is not None:
         random.seed(random_seed)
-    output_dict = {k: input_dict.get(k) for k in random.sample(input_dict.keys(), n)}
+    output_dict = {k: input_dict.get(k) for k in random.sample(list(input_dict.keys()), n)}
 
     return output_dict
 
 
-def get_parameters(model, transfer_learning):
+def get_parameters(net, method):
     """ Get total and trainable parameters of a torch neural network
     Source: https://stackoverflow.com/questions/49201236/check-the-total-number-of-parameters-in-a-pytorch-model
 
-    :param model: torch neural network
-    :param transfer_learning: bool, freeze all weights except fully connected layer?
+    :param net: torch neural network
+    :param method: str, method of transfer learning. Choose from:
+        ['no_freeze', 'freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']
     """
 
-    if transfer_learning:
-        # Freeze all weights in the network
-        for param in model.parameters():
-            param.requires_grad = False
-        # Unfreeze weights of the fully connected layer
-        for param in model.class_layers.out.parameters():
-            param.requires_grad = True
-    total_parameters_dict = {name: p.numel() for name, p in model.named_parameters()}
-    trainable_parameters_dict = {name: p.numel() for name, p in model.named_parameters() if p.requires_grad}
+    if method in ['freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
+        # Gradually freeze layers
+        freeze(net.features.conv0.parameters())
+        freeze(net.features.norm0.parameters())
+        freeze(net.features.relu0.parameters())
+        freeze(net.features.pool0.parameters())
+        freeze(net.features.denseblock1.parameters())
+        freeze(net.features.transition1.parameters())
+        if method in ['freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
+            freeze(net.features.denseblock2.parameters())
+            freeze(net.features.transition2.parameters())
+            if method in ['freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
+                freeze(net.features.denseblock3.parameters())
+                freeze(net.features.transition3.parameters())
+                if method in ['freeze_up_to_norm_5']:
+                    # Note: This is the same as only unfreezing weights in class_layers.out
+                    # Relu, pool and flatten do not contain trainable parameters
+                    freeze(net.features.denseblock4.parameters())
+                    freeze(net.features.norm5.parameters())
+
+    elif method == 'no_freeze':
+        pass
+    else:
+        raise ValueError('Transfer learning method not recognised')
+
+    total_parameters_dict = {name: p.numel() for name, p in net.named_parameters()}
+    trainable_parameters_dict = {name: p.numel() for name, p in net.named_parameters() if p.requires_grad}
 
     return total_parameters_dict, trainable_parameters_dict
+
+
+def freeze(parameters):
+    for param in parameters:
+        param.requires_grad = False
 
 
 if __name__ == "__main__":
@@ -149,6 +176,9 @@ if __name__ == "__main__":
     FL_plan_path = args.FL_plan_path
 
     print('\n\n==============================\nStarting federated learning :)\n==============================\n\n')
+
+    # FL start time
+    fl_start_time = dt.datetime.now()
 
     # Extract settings
     with open(settings_path, 'r') as json_file:
@@ -178,6 +208,7 @@ if __name__ == "__main__":
     n_rounds = int(FL_plan_dict.get('n_rounds'))                    # Number of FL rounds
     n_clients_set = FL_plan_dict.get('n_clients_set')               # Number of clients in set for averaging
     patience_stop = int(FL_plan_dict.get('pat_stop'))               # N fl rounds stagnating val loss before stopping
+    tl_method = FL_plan_dict.get('tl_method')                       # Get transfer learning method
     print('\n========\nFL plan:\n========\n')
     for k, v in FL_plan_dict.items():
         print(f'- {k}: {v}')
@@ -201,10 +232,13 @@ if __name__ == "__main__":
     torch.save(global_net.state_dict(), model_path)
 
     # Print model information: total and trainable parameters
-    total_parameters_dict, trainable_parameters_dict = get_parameters(global_net, transfer_learning=True)
-    print(f'Total number of parameters: {sum(total_parameters_dict.values())}')
-    print(f'Number of trainable parameters: {sum(trainable_parameters_dict.values())}')
-    print(f'More info trainable parameters: {trainable_parameters_dict}')
+    total_parameters_dict, trainable_parameters_dict = get_parameters(global_net, method=tl_method)
+    parameters_info_txt = f'Total number of parameters: {sum(total_parameters_dict.values())}\n' \
+                          f'Number of trainable parameters: {sum(trainable_parameters_dict.values())}\n' \
+                          f'More info trainable parameters: {trainable_parameters_dict}'
+    print(parameters_info_txt)                                                          # Print
+    with open(os.path.join(workspace_path, 'parameters_info.txt'), 'w') as txt_file:    # Save
+        txt_file.write(parameters_info_txt)
 
     # Initialize variables related to validation loss tracking
     val_loss_ref = np.inf       # Reference validation loss
@@ -308,3 +342,8 @@ if __name__ == "__main__":
         test_mae_overall += test_mae_client * n_client / sum(client_dataset_size_dict.values())
     with open(os.path.join(workspace_path, 'overall_test_mae.txt'), 'w') as txt_file:
         txt_file.write(f'Overall test MAE: {test_mae_overall}')
+
+    # Print total FL duration
+    fl_stop_time = dt.datetime.now()
+    fl_duration = fl_stop_time - fl_start_time
+    print(f'Total federated learning duration: {fl_duration/3600} hrs')

@@ -2,6 +2,9 @@
 Client-specific training
 
 FL plan inspiration: https://iopscience.iop.org/article/10.1088/1361-6560/ac97d9
+
+Info:
+- Run server script first, then client scripts
 """
 
 import os
@@ -12,6 +15,7 @@ import argparse
 import paramiko
 import pandas as pd
 import torch.nn as nn
+import datetime as dt
 import scipy.stats as stats
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error
@@ -20,7 +24,8 @@ from DL_utils.data import get_data_loader, split_data
 from DL_utils.model import get_weights
 from DL_utils.evaluation import evaluate
 from train import train
-from client import send_file, get_net_weighted_average_fc, wait_for_file, prepare_for_transfer_learning
+from client import send_file, get_weighted_average_model, wait_for_file, prepare_for_transfer_learning
+from server import get_parameters
 
 # Suppress printing of paramiko info
 # Source: https://stackoverflow.com/questions/340341/suppressing-output-of-paramiko-sshclient-class
@@ -42,6 +47,7 @@ def client(settings_path, clients_to_test):
     colname_label = settings_dict.get('colname_label')          # Column name of the label column
     subject_ids = settings_dict.get('subject_ids')              # Which subject ids to take into account?
     bids_root_path = settings_dict.get('bids_root_path')        # Path to BIDS root
+    z_normalise_gt = settings_dict.get('z_normalise_gt')        # Perform z-normalisation of ground truth label?
 
     # Load dataframe and preprocess
     df_path = os.path.join(bids_root_path, 'participants.tsv')
@@ -51,10 +57,18 @@ def client(settings_path, clients_to_test):
         colname_img_path = 'img_path'
         df[colname_img_path] = df[colname_id].apply(
             lambda x: os.path.join(bids_root_path, 'derivatives', 'Wood_2022', str(x), 'anat', f'{x}_T1w.nii.gz'))
-    colnames_dict = {'id': colname_id, 'img_path': colname_img_path, 'label': colname_label}
+    if not z_normalise_gt:
+        colnames_dict = {'id': colname_id, 'img_path': colname_img_path, 'label': colname_label}
+    else:
+        colnames_dict = {'id': colname_id, 'img_path': colname_img_path, 'label': f"z_{colname_label}"}
 
     if subject_ids is not None:
         df = df[df[colname_id].isin(subject_ids)].reset_index(drop=True)
+
+    # Z-normalise?
+    # Note: after selecting subject ids
+    if z_normalise_gt:
+        df[f'z_{colname_label}'] = (df[colname_label] - df[colname_label].mean()) / df[colname_label].std()
 
     # Create subfolder in FL workspace and copy FL plan and initial model to this subfolder
     workspace_path_client_specific = os.path.join(workspace_path, 'client-specific')
@@ -62,6 +76,9 @@ def client(settings_path, clients_to_test):
         os.mkdir(workspace_path_client_specific)
     for file in ['initial_model.pt', 'FL_plan.json']:
         os.system(f'cp {os.path.join(workspace_path, file)} {os.path.join(workspace_path_client_specific, file)}')
+
+    # Save filtered clinical dataframe to workspace path as reference
+    df.to_csv(os.path.join(workspace_path_client_specific, 'participants.tsv'), sep='\t')
 
     # Extract FL plan
     FL_plan_path = os.path.join(workspace_path_client_specific, 'FL_plan.json')
@@ -77,6 +94,7 @@ def client(settings_path, clients_to_test):
     lr_reduce_factor = float(FL_plan_dict.get('lr_reduce_factor'))  # Factor by which to reduce LR on Plateau
     patience_lr_reduction = int(FL_plan_dict.get('pat_lr_red'))     # N rounds stagnating val loss before reducing lr
     patience_stop = int(FL_plan_dict.get('pat_stop'))               # N rounds stagnating val loss before stopping
+    tl_method = FL_plan_dict.get('tl_method')                       # Get transfer learning method
 
     # Send dataset size to server
     print('==> Send dataset size to server...')
@@ -115,7 +133,16 @@ def client(settings_path, clients_to_test):
 
         # Load global network and prepare for transfer learning
         global_net = get_weights(net_architecture, model_path)
-        global_net = prepare_for_transfer_learning(global_net)
+        global_net = prepare_for_transfer_learning(global_net, tl_method)
+
+        # Print model information: total and trainable parameters (only first iteration)
+        if round_i == 1:  # Starts from 1
+            total_parameters_dict, trainable_parameters_dict = get_parameters(global_net, method=tl_method)
+            parameters_info_txt = f'Total number of parameters: {sum(total_parameters_dict.values())}\n' \
+                                  f'Number of trainable parameters: {sum(trainable_parameters_dict.values())}\n' \
+                                  f'More info trainable parameters: {trainable_parameters_dict}'
+            with open(os.path.join(workspace_path_client_specific, 'parameters_info.txt'), 'w') as txt_file:  # Save
+                txt_file.write(parameters_info_txt)
 
         # Deep learning settings per FL round
         optimizer = torch.optim.Adam(global_net.parameters(), lr=lr)
@@ -163,7 +190,7 @@ def client(settings_path, clients_to_test):
         send_file(server_ip_address, server_username, server_password, train_results_df_path)
 
         # Get weighted average fc model
-        model = get_net_weighted_average_fc(net_architecture, path_error_dict)
+        model = get_weighted_average_model(net_architecture, path_error_dict)
         model_path = os.path.join(workspace_path_client_specific, f'model_{client_name}_round_{round_i}.pt')
         torch.save(model.state_dict(), model_path)
 
@@ -230,7 +257,8 @@ def client(settings_path, clients_to_test):
         stat_sw_true, p_sw_true = stats.shapiro(true_pred_test_df['true'])
         stat_sw_pred, p_sw_pred = stats.shapiro(true_pred_test_df['pred'])
         row = pd.DataFrame({
-            'client': [client_to_test],
+            'client_model': [client_to_test],
+            'client_test_data': [client_name],
             'test_loss': [test_loss],
             'test_mae': [test_mae],
             'r_true_pred': [r_true_pred],
@@ -258,6 +286,9 @@ def client(settings_path, clients_to_test):
 
 
 def server(settings_path):
+    # FL start time
+    fl_start_time = dt.datetime.now()
+
     # Extract settings
     with open(settings_path, 'r') as json_file:
         settings_dict = json.load(json_file)
@@ -301,17 +332,27 @@ def server(settings_path):
 
     # Create dictionary with overall test MAE per client model and save to dataframe
     overall_test_mae_dict = {}
-    for client_name in client_credentials_dict.keys():
-        overall_test_mae = 0
+    for client_name in client_credentials_dict.keys():  # First wait for all test dataframes to arrive
         print(f'    ==> Wait for test results {client_name}...')
-        test_results_txt_path = os.path.join(workspace_path_client_specific, f'test_results_{client_name}_transfer_completed.txt')
+        test_results_txt_path = os.path.join(workspace_path_client_specific,
+                                             f'test_results_{client_name}_transfer_completed.txt')
         wait_for_file(test_results_txt_path)
-        client_test_df = pd.read_csv(test_results_txt_path.replace('_transfer_completed.txt', '.csv'))
-        for i, row in client_test_df.iterrows():
-            overall_test_mae += (client_dataset_size_dict.get(row['client']) * row['test_mae']) / sum(client_dataset_size_dict.values())
-        overall_test_mae_dict.update({f'{client_name}_model': overall_test_mae})
+    for client_name_model in client_credentials_dict.keys():
+        overall_test_mae = 0
+        for client_name_test_data in client_credentials_dict.keys():
+            test_results_csv_path = os.path.join(workspace_path_client_specific, f'test_results_{client_name_test_data}.csv')
+            client_test_df = pd.read_csv(test_results_csv_path)
+            # Get correct row
+            row = client_test_df[client_test_df['client_model'] == client_name_model].iloc[0]
+            overall_test_mae += (client_dataset_size_dict.get(client_name_test_data) * row['test_mae']) / sum(client_dataset_size_dict.values())
+        overall_test_mae_dict.update({f'{client_name_model}_model': overall_test_mae})
     overall_test_mae_df = pd.DataFrame(overall_test_mae_dict, index=['overall_test_mae'])
     overall_test_mae_df.to_csv(os.path.join(workspace_path_client_specific, 'overall_test_mae_results.csv'))
+
+    # Print total FL duration
+    fl_stop_time = dt.datetime.now()
+    fl_duration = fl_stop_time - fl_start_time
+    print(f'Total federated learning duration: {fl_duration/3600} hrs')
 
 
 if __name__ == "__main__":

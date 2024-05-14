@@ -4,6 +4,9 @@ Script for clients of the federated learning network
 Inspiration federated learning workflow:
 - FederatedAveraging algorithm in https://arxiv.org/pdf/1602.05629.pdf
 - FL plan in https://iopscience.iop.org/article/10.1088/1361-6560/ac97d9
+
+Info:
+- Run client scripts first, then server script
 """
 
 import os
@@ -18,6 +21,7 @@ import torch.nn as nn
 from scp import SCPClient
 import scipy.stats as stats
 import matplotlib.pyplot as plt
+from collections import OrderedDict
 from monai.networks.nets import DenseNet
 from sklearn.metrics import mean_absolute_error
 from DL_utils.data import get_data_loader, split_data
@@ -86,18 +90,50 @@ def wait_for_file(file_path, stop_with_stop_file = False):
     return stop_file_present
 
 
-def prepare_for_transfer_learning(net):
+def prepare_for_transfer_learning(net, method, print_trainable_params=False):
     """
     Prepare torch neural network for transfer learning
     ==> freeze all weights except those in the fully connected layer
+    :param net: Torch net
+    :param method: str, method of transfer learning. Choose from:
+        ['no_freeze', 'freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']
+    :param print_trainable_params: bool
     """
-    # Freeze all weights in the network
-    for param in net.parameters():
-        param.requires_grad = False
-    # Unfreeze weights of the fully connected layer
-    for param in net.class_layers.out.parameters():
-        param.requires_grad = True
+
+    if method in ['freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
+        # Gradually freeze layers
+        freeze(net.features.conv0.parameters())
+        freeze(net.features.norm0.parameters())
+        freeze(net.features.relu0.parameters())
+        freeze(net.features.pool0.parameters())
+        freeze(net.features.denseblock1.parameters())
+        freeze(net.features.transition1.parameters())
+        if method in ['freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
+            freeze(net.features.denseblock2.parameters())
+            freeze(net.features.transition2.parameters())
+            if method in ['freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
+                freeze(net.features.denseblock3.parameters())
+                freeze(net.features.transition3.parameters())
+                if method in ['freeze_up_to_norm_5']:
+                    # Note: This is the same as only unfreezing weights in class_layers.out
+                    # Relu, pool and flatten do not contain trainable parameters
+                    freeze(net.features.denseblock4.parameters())
+                    freeze(net.features.norm5.parameters())
+
+    elif method == 'no_freeze':
+        pass
+    else:
+        raise ValueError('Transfer learning method not recognised')
+
+    # Print number of trainable parameters
+    if print_trainable_params:
+        print('Number of trainable parameters: ', sum(p.numel() for p in net.parameters() if p.requires_grad))
     return net
+
+
+def freeze(parameters):
+    for param in parameters:
+        param.requires_grad = False
 
 
 def copy_net(net):
@@ -119,34 +155,31 @@ def loss_to_contribution(loss_list):
     return contribution_weights_normalised
 
 
-def get_net_weighted_average_fc(net_architecture, path_error_dict):
+def get_weighted_average_model(net_architecture, path_error_dict):
     """
-    Get network of which the fully connected layer is a weighted average of the fc layers of multiple models.
-    The contribution of a model is based on their its loss (higher loss = lower contribution)
+    Get weighted average of multiple models.
+    The contribution of a model is based on its loss (higher loss = lower contribution)
     """
     # Convert loss to normalised contribution (so that sum of the contributions is 1)
     path_contribution_dict = dict(zip(path_error_dict.keys(), loss_to_contribution(path_error_dict.values())))
 
-    # Initialise weight and bias tensor
-    fc_weights = torch.tensor(np.zeros((1, 1024)))
-    fc_bias = torch.tensor([0.0])
-
-    for path, contribution in path_contribution_dict.items():
+    state_dict_avg = OrderedDict()
+    for i, (path, contribution) in enumerate(path_contribution_dict.items()):
         # Load network weights
         net = get_weights(copy_net(net_architecture), path)
         net.to(torch.device('cpu'))
+        state_dict = net.state_dict()
 
-        # Update weight and bias tensor with the contribution of the model
-        fc_weights += net.class_layers.out.weight * contribution
-        fc_bias += net.class_layers.out.bias * contribution
+        for key in state_dict.keys():
+            state_dict_contribution = state_dict[key] * contribution
+            if i == 0:
+                state_dict_avg[key] = state_dict_contribution
+            else:
+                state_dict_avg[key] += state_dict_contribution
 
-    # Load one of the networks and replace its fc with the weighted average fc
-    net_with_weighted_avg_fc = get_weights(copy_net(net_architecture), list(path_error_dict.keys())[0])
-    net_with_weighted_avg_fc.to(torch.device('cpu'))
-    net_with_weighted_avg_fc.class_layers.out.weight = torch.nn.Parameter(fc_weights)
-    net_with_weighted_avg_fc.class_layers.out.bias = torch.nn.Parameter(fc_bias)
-
-    return net_with_weighted_avg_fc
+    weighted_avg_net = DenseNet(3, 1, 1)
+    weighted_avg_net.load_state_dict(state_dict_avg)
+    return weighted_avg_net
 
 
 def get_criterion(criterion_txt):
@@ -187,6 +220,7 @@ if __name__ == "__main__":
     colname_label = settings_dict.get('colname_label')              # Column name of the label column
     subject_ids = settings_dict.get('subject_ids')                  # Which subject ids to take into account?
     bids_root_path = settings_dict.get('bids_root_path')            # Path to BIDS root
+    z_normalise_gt = settings_dict.get('z_normalise_gt')            # Perform z-normalisation of ground truth label?
 
     # Load dataframe and preprocess
     df_path = os.path.join(bids_root_path, 'participants.tsv')
@@ -196,14 +230,25 @@ if __name__ == "__main__":
         colname_img_path = 'img_path'
         df[colname_img_path] = df[colname_id].apply(
             lambda x: os.path.join(bids_root_path, 'derivatives', 'Wood_2022', str(x), 'anat', f'{x}_T1w.nii.gz'))
-    colnames_dict = {'id': colname_id, 'img_path': colname_img_path, 'label': colname_label}
+    if not z_normalise_gt:
+        colnames_dict = {'id': colname_id, 'img_path': colname_img_path, 'label': colname_label}
+    else:
+        colnames_dict = {'id': colname_id, 'img_path': colname_img_path, 'label': f"z_{colname_label}"}
 
     if subject_ids is not None:
         df = df[df[colname_id].isin(subject_ids)].reset_index(drop=True)
 
+    # Z-normalise?
+    # Note: after selecting subject ids
+    if z_normalise_gt:
+        df[f'z_{colname_label}'] = (df[colname_label] - df[colname_label].mean()) / df[colname_label].std()
+
     # Create workspace folder
     if not os.path.exists(workspace_path):
         os.makedirs(workspace_path)
+
+    # Save filtered clinical dataframe to workspace path as reference
+    df.to_csv(os.path.join(workspace_path, 'participants.tsv'), sep='\t')
 
     # Wait for FL plan
     print('==> Waiting for FL plan...')
@@ -224,6 +269,7 @@ if __name__ == "__main__":
     patience_lr_reduction = int(FL_plan_dict.get('pat_lr_red'))     # N fl rounds stagnating val loss before reducing lr
     criterion_txt = FL_plan_dict.get('criterion')                   # Criterion in txt format, lowercase (e.g. l1loss)
     optimizer_txt = FL_plan_dict.get('optimizer')                   # Optimizer in txt format, lowercase (e.g. adam)
+    tl_method = FL_plan_dict.get('tl_method')                       # Get transfer learning method
 
     # Send dataset size to server
     print('==> Send dataset size to server...')
@@ -269,7 +315,7 @@ if __name__ == "__main__":
 
         # Load global network and prepare for transfer learning
         global_net = get_weights(net_architecture, global_model_path)
-        global_net = prepare_for_transfer_learning(global_net)
+        global_net = prepare_for_transfer_learning(global_net, tl_method, print_trainable_params=True)
 
         # Deep learning settings per FL round
         optimizer = get_optimizer(optimizer_txt, global_net, lr)
@@ -285,6 +331,10 @@ if __name__ == "__main__":
             # Note: Fix train_test_random_state to assure test data is always the same
             train_df, val_df, test_df = split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction,
                                                    train_test_random_state=42, train_val_random_state=random_state)
+            if fl_round == 1 and split_i == 0:  # fl_round starts from 1
+                train_overall_df = pd.concat([train_df, val_df], ignore_index=True)
+                train_overall_df.to_csv(os.path.join(workspace_path, 'train_overall_df.csv'), index=False)
+                test_df.to_csv(os.path.join(workspace_path, 'test_df.csv'), index=False)
             train_loader, n_train = get_data_loader(train_df, 'train', colnames_dict, batch_size, return_n=True)
             val_loader, n_val = get_data_loader(val_df, 'validation', colnames_dict, batch_size, return_n=True)
             test_loader, n_test = get_data_loader(test_df, 'test', colnames_dict, batch_size, return_n=True)
@@ -315,7 +365,7 @@ if __name__ == "__main__":
         send_file(server_ip_address, server_username, server_password, train_results_df_path)
 
         # Get local model
-        local_model = get_net_weighted_average_fc(net_architecture, path_error_dict)
+        local_model = get_weighted_average_model(net_architecture, path_error_dict)
         local_model_path = os.path.join(workspace_path, f'model_{client_name}_round_{fl_round}.pt')
         torch.save(local_model.state_dict(), local_model_path)
 
