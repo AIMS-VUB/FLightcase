@@ -45,7 +45,7 @@ def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_
     for root, dirs, files in os.walk(input_root_path):
         for file in files:
             # Do not process images in "derivatives" sub-folder of the BIDS tree
-            if file.endswith('_T1w.nii.gz') and f'{os.sep}derivatives{os.sep}' not in root:
+            if (file.endswith('_T1w.nii.gz') or file.endswith('_FLAIR.nii.gz')) and f'{os.sep}derivatives{os.sep}' not in root:
                 input_path = os.path.join(root, file)
                 output_path = input_path.replace(input_root_path, output_root_path)
 
@@ -55,13 +55,12 @@ def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_
                         os.makedirs(os.path.dirname(output_path))
                     print(f'--> Start preprocessing {input_path}')
                     print(f'--> Output destination: {output_path}')
-                    preprocess_t1w_image(input_path=input_path, output_path=output_path, use_gpu=use_gpu,
+                    preprocess_image(input_path=input_path, output_path=output_path, use_gpu=use_gpu,
                                          skull_strip=skull_strip, Wood_2022_path=Wood_2022_path)
-                    break
 
 
-def preprocess_t1w_image(input_path, output_path, skull_strip, Wood_2022_path, use_gpu):
-    """ Preprocess T1w image
+def preprocess_image(input_path, output_path, skull_strip, Wood_2022_path, use_gpu):
+    """ Preprocess image
 
     :param input_path: str, absolute path to t1w image
     :param output_path: str, absolute path to output image
