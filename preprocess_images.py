@@ -1,5 +1,5 @@
 """
-Preprocess T1w brain images
+Preprocess T1w and FLAIR brain images
 ==> Inspired by the GitHub repository of Wood et al. 2022 (https://github.com/MIDIconsortium/BrainAge)
 """
 
@@ -34,7 +34,7 @@ def dataset_is_bids(path_to_root):
 
 
 def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_gpu, Wood_2022_path):
-    """ Preprocess T1w images of a BIDS dataset
+    """ Preprocess T1w and FLAIR images of a BIDS dataset
 
     :param input_root_path: str, absolute path to BIDS root directory
     :param output_root_path: str, absolute path to output root directory
@@ -62,7 +62,7 @@ def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_
 def preprocess_image(input_path, output_path, skull_strip, Wood_2022_path, use_gpu):
     """ Preprocess image
 
-    :param input_path: str, absolute path to t1w image
+    :param input_path: str, absolute path to image
     :param output_path: str, absolute path to output image
     :param skull_strip: bool, perform skull-stripping?
     :param Wood_2022_path: str, absolute path to parent directory of this script
@@ -109,8 +109,8 @@ def get_brain_slice_images(nifti_path, output_dir_path=None):
 if __name__ == "__main__":
     # Define command line options
     parser = argparse.ArgumentParser(
-        prog = 'Preprocess T1w images',
-        description = 'This program preprocesses T1w images'
+        prog = 'Preprocess T1w and FLAIR images',
+        description = 'This program preprocesses T1w and FLAIR images'
     )
     parser.add_argument('--dataset_root_path', type=str, help='Absolute path to dataset root', required=True)
     parser.add_argument('--use_gpu', action='store_true', help='Use GPU?')
