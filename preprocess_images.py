@@ -9,6 +9,7 @@ import pathlib
 import argparse
 import numpy as np
 import nibabel as nib
+from datetime import datetime
 from matplotlib.image import imsave
 from bids_validator import BIDSValidator
 from submodules.Wood_2022.pre_process import preprocess
@@ -44,6 +45,7 @@ def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_
 
     for root, dirs, files in os.walk(input_root_path):
         for file in files:
+            start_time = datetime.now()
             # Do not process images in "derivatives" sub-folder of the BIDS tree
             if (file.endswith('_T1w.nii.gz') or file.endswith('_FLAIR.nii.gz')) and f'{os.sep}derivatives{os.sep}' not in root:
                 input_path = os.path.join(root, file)
@@ -57,6 +59,8 @@ def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_
                     print(f'--> Output destination: {output_path}')
                     preprocess_image(input_path=input_path, output_path=output_path, use_gpu=use_gpu,
                                          skull_strip=skull_strip, Wood_2022_path=Wood_2022_path)
+                    stop_time = datetime.now()
+                    print(f'[DURATION] {file} preprocessed in {(stop_time - start_time).seconds} seconds\n\n')
 
 
 def preprocess_image(input_path, output_path, skull_strip, Wood_2022_path, use_gpu):
