@@ -26,8 +26,8 @@ def dataset_is_bids(path_to_root):
     for root, dirs, files in os.walk(path_to_root):
         for file in files:
             file_path = os.path.join(root, file)
-            if not validator.is_bids(file_path.replace(path_to_root, '')):
-                print(file_path.replace(path_to_root, ''))
+            if not validator.is_bids(file_path.replace(path_to_root, os.sep)):
+                print(file_path.replace(path_to_root, os.sep))
                 print(f'File not bids: {file_path}')
                 dataset_bids_bool = False
     return dataset_bids_bool
