@@ -49,7 +49,7 @@ def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_
             # Do not process images in "derivatives" sub-folder of the BIDS tree
             if (file.endswith('_T1w.nii.gz') or file.endswith('_FLAIR.nii.gz')) and f'{os.sep}derivatives{os.sep}' not in root:
                 input_path = os.path.join(root, file)
-                output_path = input_path.replace(input_root_path, output_root_path)
+                output_path = input_path.replace(input_root_path, output_root_path + os.sep)
 
                 # Check if output NIfTI is already present. If not, create destination folder path and preprocess.
                 if not os.path.exists(output_path):
