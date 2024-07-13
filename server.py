@@ -201,6 +201,7 @@ if __name__ == "__main__":
         client_ip_address = credentials.get('ip_address')
         send_file(client_ip_address, credentials.get('username'), credentials.get('password'),
                   os.path.join(workspace_path, 'FL_plan.json'))
+        print(f'    ==> Sent to {client_name} ...')
 
     # Extract FL plan
     with open(FL_plan_path, 'r') as json_file:
@@ -227,9 +228,19 @@ if __name__ == "__main__":
 
     # Load initial network and save
     net_architecture = DenseNet(3, 1, 1)
-    global_net = get_weights(net_architecture, initial_state_dict_path)
-    model_path = os.path.join(workspace_path, 'initial_model.pt')
-    torch.save(global_net.state_dict(), model_path)
+    if initial_state_dict_path is None:
+        print('\nWarning: Do not have initial model !!!\n==> Default model has been used\n\n')
+        global_net = net_architecture
+        model_path = os.path.join(workspace_path, 'initial_model.pt')
+        global_net = get_weights(net_architecture, model_path)
+        torch.save(global_net.state_dict(), model_path)
+
+    else:
+        print('\n==> Initial model has been used\n\n')    
+        global_net = get_weights(net_architecture, initial_state_dict_path)
+        model_path = os.path.join(workspace_path, 'initial_model.pt')
+        torch.save(global_net.state_dict(), model_path)
+    
 
     # Print model information: total and trainable parameters
     total_parameters_dict, trainable_parameters_dict = get_parameters(global_net, method=tl_method)

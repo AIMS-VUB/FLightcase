@@ -17,8 +17,13 @@ A couple of preparatory steps are required to start an FL experiment:
 
 To start the FL experiment, perform the following steps:
 1. Make sure that all computers are present in the same virtual network via VPN
-3. Run the `client.py` script on each client computer within the virtual environment
-4. Run the `server.py` script on the server computer within the virtual environment 
+2. Run the `client.py` script on each client computer within the virtual environment
+   ```sh
+   python client.py --settings_path "Path/to/the/FL_settings_client.json"
+3. Run the `server.py` script on the server computer within the virtual environment 
+   ```sh
+   python server.py --settings_path "Path/to/the/FL_settings_server.json" --FL_plan_path "Path/to/the/FL_plan.json"
+
 
 That's it!
 
