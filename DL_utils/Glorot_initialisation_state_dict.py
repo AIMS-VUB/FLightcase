@@ -17,9 +17,8 @@ def init_weights(m):
     """
     Function from: https://stackoverflow.com/questions/49433936/how-do-i-initialize-weights-in-pytorch
     """
-    if isinstance(m, nn.Linear):
-        torch.nn.init.xavier_uniform_(m.weight)
-        m.bias.data.fill_(0.01)
+    torch.nn.init.xavier_uniform_(m.weight)
+    m.bias.data.fill_(0.01)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
