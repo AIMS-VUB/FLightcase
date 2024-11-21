@@ -13,13 +13,40 @@ import torch
 import torch.nn as nn
 from monai.networks.nets import DenseNet
 
+
 def init_weights(m):
     """
     Function from: https://stackoverflow.com/questions/49433936/how-do-i-initialize-weights-in-pytorch
+    Additional:
+    - https://stackoverflow.com/questions/21095654/what-is-a-nonetype-object
+    -
+    Which layers no initialisation?
+    > DenseNet, ReLU, Sequential objects have no attribute 'weight'
     """
-    if isinstance(m, nn.Linear):
-        torch.nn.init.xavier_uniform_(m.weight)
-        m.bias.data.fill_(0.01)
+    # Weight initialisation
+    try:
+        nn.init.xavier_uniform_(m.weight)
+    except AttributeError as AttErr:
+        if str(AttErr).endswith("object has no attribute 'weight'"):
+            pass
+    except ValueError as ValErr:
+        if str(ValErr) == 'Fan in and fan out can not be computed for tensor with fewer than 2 dimensions':
+            # For tensors with < 2 dimensions, initialise differently: https://stackoverflow.com/questions/76991945/
+            nn.init.normal_(m.weight)
+
+    # Bias initialisation
+    try:
+        nn.init.xavier_uniform_(m.bias)
+        print('hey')
+    except AttributeError as AttErr:
+        if str(AttErr) == "'NoneType' object has no attribute 'dim'":
+            pass
+    except ValueError as ValErr:
+        if str(ValErr) == 'Fan in and fan out can not be computed for tensor with fewer than 2 dimensions':
+            # ptrblck suggestion:
+            # https://discuss.pytorch.org/t/how-are-layer-weights-and-biases-initialized-by-default/13073/8
+            nn.init.zeros_(m.bias)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -27,7 +54,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Initialise DenseNet
-    net = DenseNet(3,1,1)
+    net = DenseNet(3, 1, 1)
     net.apply(init_weights)
 
     # Save State Dict
