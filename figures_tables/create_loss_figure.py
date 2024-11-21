@@ -85,6 +85,7 @@ def fig_aesthetics(ax, xticks, best_model_round, title_center=None, title_right=
     ax.set_ylabel('MAE', fontsize=20)
     ax.axvline(x=best_model_round, color='#808080')
     y_text = ax.get_ylim()[0] + 0.67 * (ax.get_ylim()[1] - ax.get_ylim()[0])
+    # y_text = np.log10(ax.get_ylim()[0] + 0.67 * (ax.get_ylim()[1] - ax.get_ylim()[0]))
     ax.text(x=best_model_round + 0.25, y=y_text, s='final model', color='#808080', fontsize=14, rotation=90)
     if title_center is not None:
         ax.set_title(title_center, fontsize=18)
@@ -92,6 +93,7 @@ def fig_aesthetics(ax, xticks, best_model_round, title_center=None, title_right=
         ax.set_title(title_right, loc='right', fontsize=18)
     if xlabel is not None:
         ax.set_xlabel(xlabel, fontsize=20)
+    # ax.set_yscale('log')
 
     return ax
 
