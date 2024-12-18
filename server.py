@@ -11,7 +11,6 @@ Info:
 
 import os
 import json
-import random
 import torch
 import argparse
 import paramiko
@@ -19,9 +18,9 @@ import warnings
 import numpy as np
 import pandas as pd
 import datetime as dt
-from collections import OrderedDict
 from monai.networks.nets import DenseNet
-from utils.deep_learning.model import get_weights
+from utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_parameters,
+                                       get_n_random_pairs_from_dict)
 from utils.communication import wait_for_file, send_file
 
 # Filter deprecation warnings
@@ -31,93 +30,6 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 # Source: https://stackoverflow.com/questions/340341/suppressing-output-of-paramiko-sshclient-class
 logger = paramiko.util.logging.getLogger()
 logger.setLevel(paramiko.util.logging.WARN)
-
-
-def weighted_avg_local_models(state_dicts_dict, size_dict):
-    """ Get weighted average of local models
-
-    :param state_dicts_dict: dict, key: client ip address, value: local state dict
-    :param size_dict: dict, key: client ip address, value: dataset size
-    :return: weighted average state dict of local state dicts
-    """
-
-    n_sum = sum(size_dict.values())
-    clients = list(state_dicts_dict.keys())
-    state_dict_keys = state_dicts_dict.get(clients[0]).keys()
-
-    state_dict_avg = OrderedDict()
-    for i, client in enumerate(clients):
-        local_state_dict = state_dicts_dict.get(client)
-        n_client = size_dict.get(client)
-        for key in state_dict_keys:
-            state_dict_contribution = (n_client * local_state_dict[key]) / n_sum
-            if i == 0:
-                state_dict_avg[key] = state_dict_contribution
-            else:
-                state_dict_avg[key] += state_dict_contribution
-
-    return state_dict_avg
-
-
-def get_n_random_pairs_from_dict(input_dict, n, random_seed=None):
-    """ Sample n random pairs from a dict without replacement
-
-    :param input_dict: dict
-    :param n: int, number of pairs to extract
-    :param random_seed: int, random seed
-    :return: dict with n pairs from input dict
-    """
-
-    if random_seed is not None:
-        random.seed(random_seed)
-    output_dict = {k: input_dict.get(k) for k in random.sample(list(input_dict.keys()), n)}
-
-    return output_dict
-
-
-def get_parameters(net, method):
-    """ Get total and trainable parameters of a torch neural network
-    Source: https://stackoverflow.com/questions/49201236/check-the-total-number-of-parameters-in-a-pytorch-model
-
-    :param net: torch neural network
-    :param method: str, method of transfer learning. Choose from:
-        ['no_freeze', 'freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']
-    """
-
-    if method in ['freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
-        # Gradually freeze layers
-        freeze(net.features.conv0.parameters())
-        freeze(net.features.norm0.parameters())
-        freeze(net.features.relu0.parameters())
-        freeze(net.features.pool0.parameters())
-        freeze(net.features.denseblock1.parameters())
-        freeze(net.features.transition1.parameters())
-        if method in ['freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
-            freeze(net.features.denseblock2.parameters())
-            freeze(net.features.transition2.parameters())
-            if method in ['freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
-                freeze(net.features.denseblock3.parameters())
-                freeze(net.features.transition3.parameters())
-                if method in ['freeze_up_to_norm_5']:
-                    # Note: This is the same as only unfreezing weights in class_layers.out
-                    # Relu, pool and flatten do not contain trainable parameters
-                    freeze(net.features.denseblock4.parameters())
-                    freeze(net.features.norm5.parameters())
-
-    elif method == 'no_freeze':
-        pass
-    else:
-        raise ValueError('Transfer learning method not recognised')
-
-    total_parameters_dict = {name: p.numel() for name, p in net.named_parameters()}
-    trainable_parameters_dict = {name: p.numel() for name, p in net.named_parameters() if p.requires_grad}
-
-    return total_parameters_dict, trainable_parameters_dict
-
-
-def freeze(parameters):
-    for param in parameters:
-        param.requires_grad = False
 
 
 if __name__ == "__main__":

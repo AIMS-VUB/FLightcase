@@ -10,7 +10,6 @@ Info:
 """
 
 import os
-import copy
 import json
 import numpy as np
 import torch
@@ -20,11 +19,10 @@ import pandas as pd
 import torch.nn as nn
 import scipy.stats as stats
 import matplotlib.pyplot as plt
-from collections import OrderedDict
 from monai.networks.nets import DenseNet
 from sklearn.metrics import mean_absolute_error
 from utils.deep_learning.data import get_data_loader, split_data
-from utils.deep_learning.model import get_weights
+from utils.deep_learning.model import get_weights, prepare_for_transfer_learning, get_weighted_average_model
 from utils.deep_learning.evaluation import evaluate
 from utils.communication import wait_for_file, send_file
 from train import train
@@ -33,98 +31,6 @@ from train import train
 # Source: https://stackoverflow.com/questions/340341/suppressing-output-of-paramiko-sshclient-class
 logger = paramiko.util.logging.getLogger()
 logger.setLevel(paramiko.util.logging.WARN)
-
-
-def prepare_for_transfer_learning(net, method, print_trainable_params=False):
-    """
-    Prepare torch neural network for transfer learning
-    ==> freeze all weights except those in the fully connected layer
-    :param net: Torch net
-    :param method: str, method of transfer learning. Choose from:
-        ['no_freeze', 'freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']
-    :param print_trainable_params: bool
-    """
-
-    if method in ['freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
-        # Gradually freeze layers
-        freeze(net.features.conv0.parameters())
-        freeze(net.features.norm0.parameters())
-        freeze(net.features.relu0.parameters())
-        freeze(net.features.pool0.parameters())
-        freeze(net.features.denseblock1.parameters())
-        freeze(net.features.transition1.parameters())
-        if method in ['freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
-            freeze(net.features.denseblock2.parameters())
-            freeze(net.features.transition2.parameters())
-            if method in ['freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
-                freeze(net.features.denseblock3.parameters())
-                freeze(net.features.transition3.parameters())
-                if method in ['freeze_up_to_norm_5']:
-                    # Note: This is the same as only unfreezing weights in class_layers.out
-                    # Relu, pool and flatten do not contain trainable parameters
-                    freeze(net.features.denseblock4.parameters())
-                    freeze(net.features.norm5.parameters())
-
-    elif method == 'no_freeze':
-        pass
-    else:
-        raise ValueError('Transfer learning method not recognised')
-
-    # Print number of trainable parameters
-    if print_trainable_params:
-        print('Number of trainable parameters: ', sum(p.numel() for p in net.parameters() if p.requires_grad))
-    return net
-
-
-def freeze(parameters):
-    for param in parameters:
-        param.requires_grad = False
-
-
-def copy_net(net):
-    """ Copy torch network
-
-    Source: https://androidkt.com/copy-pytorch-model-using-deepcopy-and-state_dict/
-    """
-    net_copy = copy.deepcopy(net)
-    return net_copy
-
-
-def loss_to_contribution(loss_list):
-    """
-    Convert loss list into normalised weights.
-    Higher loss = lower contribution.
-    """
-    contribution_weights = [1 / val for val in loss_list]
-    contribution_weights_normalised = [val / (sum(contribution_weights)) for val in contribution_weights]
-    return contribution_weights_normalised
-
-
-def get_weighted_average_model(net_architecture, path_error_dict):
-    """
-    Get weighted average of multiple models.
-    The contribution of a model is based on its loss (higher loss = lower contribution)
-    """
-    # Convert loss to normalised contribution (so that sum of the contributions is 1)
-    path_contribution_dict = dict(zip(path_error_dict.keys(), loss_to_contribution(path_error_dict.values())))
-
-    state_dict_avg = OrderedDict()
-    for i, (path, contribution) in enumerate(path_contribution_dict.items()):
-        # Load network weights
-        net = get_weights(copy_net(net_architecture), path)
-        net.to(torch.device('cpu'))
-        state_dict = net.state_dict()
-
-        for key in state_dict.keys():
-            state_dict_contribution = state_dict[key] * contribution
-            if i == 0:
-                state_dict_avg[key] = state_dict_contribution
-            else:
-                state_dict_avg[key] += state_dict_contribution
-
-    weighted_avg_net = DenseNet(3, 1, 1)
-    weighted_avg_net.load_state_dict(state_dict_avg)
-    return weighted_avg_net
 
 
 def get_criterion(criterion_txt):
