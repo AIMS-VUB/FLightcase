@@ -22,7 +22,7 @@ import datetime as dt
 from scp import SCPClient
 from collections import OrderedDict
 from monai.networks.nets import DenseNet
-from DL_utils.model import get_weights
+from utils.deep_learning.model import get_weights
 
 # Filter deprecation warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)

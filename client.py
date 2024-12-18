@@ -24,9 +24,9 @@ import matplotlib.pyplot as plt
 from collections import OrderedDict
 from monai.networks.nets import DenseNet
 from sklearn.metrics import mean_absolute_error
-from DL_utils.data import get_data_loader, split_data
-from DL_utils.model import get_weights
-from DL_utils.evaluation import evaluate
+from utils.deep_learning.data import get_data_loader, split_data
+from utils.deep_learning.model import get_weights
+from utils.deep_learning.evaluation import evaluate
 from train import train
 
 # Suppress printing of paramiko info

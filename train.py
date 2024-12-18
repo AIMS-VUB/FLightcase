@@ -13,9 +13,9 @@ from tqdm import tqdm
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from sklearn.metrics import mean_absolute_error
 from monai.networks.nets import DenseNet
-from DL_utils.data import get_data_loader, split_data
-from DL_utils.model import get_weights
-from DL_utils.evaluation import evaluate
+from utils.deep_learning.data import get_data_loader, split_data
+from utils.deep_learning.model import get_weights
+from utils.deep_learning.evaluation import evaluate
 
 
 def print_epoch_message(epoch, lr, train_loss, train_mae, val_loss, val_mae, best_loss, n_worse_epochs):
