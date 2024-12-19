@@ -25,6 +25,7 @@ from utils.communication import wait_for_file, send_file
 
 # Filter deprecation warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)  # TODO: torch.load with weights_only=True in future
 
 # Suppress printing of paramiko info
 # Source: https://stackoverflow.com/questions/340341/suppressing-output-of-paramiko-sshclient-class

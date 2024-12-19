@@ -7,8 +7,11 @@ import copy
 import json
 import torch
 import random
+import warnings
 from monai.networks.nets import DenseNet
 from collections import OrderedDict
+
+warnings.filterwarnings("ignore", category=FutureWarning)  # TODO: torch.load with weights_only=True in future
 
 
 def copy_net(net):
