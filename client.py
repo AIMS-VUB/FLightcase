@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from monai.networks.nets import DenseNet
 from sklearn.metrics import mean_absolute_error
 from utils.deep_learning.data import get_data_loader, split_data
-from utils.deep_learning.model import get_weights, prepare_for_transfer_learning, get_weighted_average_model
+from utils.deep_learning.model import get_weights, get_weighted_average_model
 from utils.deep_learning.evaluation import evaluate
 from utils.communication import wait_for_file, send_file
 from train import train
@@ -143,7 +143,6 @@ if __name__ == "__main__":
     patience_lr_reduction = int(FL_plan_dict.get('pat_lr_red'))     # N fl rounds stagnating val loss before reducing lr
     criterion_txt = FL_plan_dict.get('criterion')                   # Criterion in txt format, lowercase (e.g. l1loss)
     optimizer_txt = FL_plan_dict.get('optimizer')                   # Optimizer in txt format, lowercase (e.g. adam)
-    tl_method = FL_plan_dict.get('tl_method')                       # Get transfer learning method
 
     # General deep learning settings
     criterion = get_criterion(criterion_txt)
@@ -179,9 +178,8 @@ if __name__ == "__main__":
         if not os.path.exists(state_dict_folder_path):
             os.mkdir(state_dict_folder_path)
 
-        # Load global network and prepare for transfer learning
+        # Load global network
         global_net = get_weights(net_architecture, global_model_path)
-        global_net = prepare_for_transfer_learning(global_net, tl_method, print_trainable_params=True)
 
         # Deep learning settings per FL round
         optimizer = get_optimizer(optimizer_txt, global_net, lr)
@@ -237,7 +235,7 @@ if __name__ == "__main__":
         torch.save(local_model.state_dict(), local_model_path)
 
         # Send to server
-        print('==> Send model with weighted average fc to server ...')
+        print('==> Send model to server ...')
         send_file(server_ip_address, server_username, server_password, local_model_path, workspace_path_client,
                   workspace_path_server)
 

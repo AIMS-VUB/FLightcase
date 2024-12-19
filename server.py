@@ -19,8 +19,8 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 from monai.networks.nets import DenseNet
-from utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_parameters,
-                                       get_n_random_pairs_from_dict)
+from utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
+                                       get_model_param_info)
 from utils.communication import wait_for_file, send_file
 
 # Filter deprecation warnings
@@ -98,7 +98,6 @@ if __name__ == "__main__":
     n_rounds = int(FL_plan_dict.get('n_rounds'))                    # Number of FL rounds
     n_clients_set = FL_plan_dict.get('n_clients_set')               # Number of clients in set for averaging
     patience_stop = int(FL_plan_dict.get('pat_stop'))               # N fl rounds stagnating val loss before stopping
-    tl_method = FL_plan_dict.get('tl_method')                       # Get transfer learning method
     print('\n========\nFL plan:\n========\n')
     for k, v in FL_plan_dict.items():
         print(f'- {k}: {v}')
@@ -110,14 +109,8 @@ if __name__ == "__main__":
     model_path = os.path.join(workspace_path_server, 'initial_model.pt')
     torch.save(global_net.state_dict(), model_path)
 
-    # Print model information: total and trainable parameters
-    total_parameters_dict, trainable_parameters_dict = get_parameters(global_net, method=tl_method)
-    parameters_info_txt = f'Total number of parameters: {sum(total_parameters_dict.values())}\n' \
-                          f'Number of trainable parameters: {sum(trainable_parameters_dict.values())}\n' \
-                          f'More info trainable parameters: {trainable_parameters_dict}'
-    print(parameters_info_txt)                                                          # Print
-    with open(os.path.join(workspace_path_server, 'parameters_info.txt'), 'w') as txt_file:    # Save
-        txt_file.write(parameters_info_txt)
+    # Model information: get, print and save
+    get_model_param_info(global_net, os.path.join(workspace_path_server, 'parameters_info.txt'))
 
     # Initialize variables related to validation loss tracking
     val_loss_ref = np.inf       # Reference validation loss

@@ -4,6 +4,7 @@ Utilities related to the model
 """
 
 import copy
+import json
 import torch
 import random
 from monai.networks.nets import DenseNet
@@ -34,52 +35,6 @@ def get_weights(net, state_dict_path):
     copied_net.load_state_dict(state_dict)
 
     return copied_net
-
-
-def prepare_for_transfer_learning(net, method, print_trainable_params=False):
-    """
-    Prepare torch neural network for transfer learning
-    ==> freeze all weights except those in the fully connected layer
-    :param net: Torch net
-    :param method: str, method of transfer learning. Choose from:
-        ['no_freeze', 'freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']
-    :param print_trainable_params: bool
-    """
-
-    if method in ['freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
-        # Gradually freeze layers
-        freeze(net.features.conv0.parameters())
-        freeze(net.features.norm0.parameters())
-        freeze(net.features.relu0.parameters())
-        freeze(net.features.pool0.parameters())
-        freeze(net.features.denseblock1.parameters())
-        freeze(net.features.transition1.parameters())
-        if method in ['freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
-            freeze(net.features.denseblock2.parameters())
-            freeze(net.features.transition2.parameters())
-            if method in ['freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
-                freeze(net.features.denseblock3.parameters())
-                freeze(net.features.transition3.parameters())
-                if method in ['freeze_up_to_norm_5']:
-                    # Note: This is the same as only unfreezing weights in class_layers.out
-                    # Relu, pool and flatten do not contain trainable parameters
-                    freeze(net.features.denseblock4.parameters())
-                    freeze(net.features.norm5.parameters())
-
-    elif method == 'no_freeze':
-        pass
-    else:
-        raise ValueError('Transfer learning method not recognised')
-
-    # Print number of trainable parameters
-    if print_trainable_params:
-        print('Number of trainable parameters: ', sum(p.numel() for p in net.parameters() if p.requires_grad))
-    return net
-
-
-def freeze(parameters):
-    for param in parameters:
-        param.requires_grad = False
 
 
 def loss_to_contribution(loss_list):
@@ -161,41 +116,28 @@ def get_n_random_pairs_from_dict(input_dict, n, random_seed=None):
     return output_dict
 
 
-def get_parameters(net, method):
-    """ Get total and trainable parameters of a torch neural network
-    Source: https://stackoverflow.com/questions/49201236/check-the-total-number-of-parameters-in-a-pytorch-model
-
-    :param net: torch neural network
-    :param method: str, method of transfer learning. Choose from:
-        ['no_freeze', 'freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']
+def get_model_param_info(net, print_info=False, save_info_path=None):
     """
-
-    if method in ['freeze_up_to_trans_1', 'freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
-        # Gradually freeze layers
-        freeze(net.features.conv0.parameters())
-        freeze(net.features.norm0.parameters())
-        freeze(net.features.relu0.parameters())
-        freeze(net.features.pool0.parameters())
-        freeze(net.features.denseblock1.parameters())
-        freeze(net.features.transition1.parameters())
-        if method in ['freeze_up_to_trans_2', 'freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
-            freeze(net.features.denseblock2.parameters())
-            freeze(net.features.transition2.parameters())
-            if method in ['freeze_up_to_trans_3', 'freeze_up_to_norm_5']:
-                freeze(net.features.denseblock3.parameters())
-                freeze(net.features.transition3.parameters())
-                if method in ['freeze_up_to_norm_5']:
-                    # Note: This is the same as only unfreezing weights in class_layers.out
-                    # Relu, pool and flatten do not contain trainable parameters
-                    freeze(net.features.denseblock4.parameters())
-                    freeze(net.features.norm5.parameters())
-
-    elif method == 'no_freeze':
-        pass
-    else:
-        raise ValueError('Transfer learning method not recognised')
-
+    Get model information related to (trainable) parameters
+    """
+    # Get model info
     total_parameters_dict = {name: p.numel() for name, p in net.named_parameters()}
     trainable_parameters_dict = {name: p.numel() for name, p in net.named_parameters() if p.requires_grad}
 
-    return total_parameters_dict, trainable_parameters_dict
+    # Collect in one dict
+    model_info_dict = {
+        'total_parameters': total_parameters_dict,
+        'trainable_parameters': trainable_parameters_dict,
+        'total_n_parameters': sum(total_parameters_dict.values()),
+        'total_n_trainable_parameters': sum(trainable_parameters_dict.values())
+    }
+
+    if print_info:
+        print(f'Total number of parameters: {sum(total_parameters_dict.values())}\n'
+              f'Number of trainable parameters: {sum(trainable_parameters_dict.values())}\n')
+
+    if save_info_path is not None:
+        with open(save_info_path, 'w') as file:
+            json.dump(model_info_dict, file)
+
+    return model_info_dict
