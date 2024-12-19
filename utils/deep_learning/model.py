@@ -3,6 +3,8 @@ Utilities related to the model
 ==> Inspired by the GitHub repository of Wood et al. 2022 (https://github.com/MIDIconsortium/BrainAge)
 """
 
+import os
+import sys
 import copy
 import json
 import torch
@@ -12,6 +14,12 @@ from monai.networks.nets import DenseNet
 from collections import OrderedDict
 
 warnings.filterwarnings("ignore", category=FutureWarning)  # TODO: torch.load with weights_only=True in future
+
+
+def import_net_architecture(architecture_file_path):
+    sys.path.append(os.path.dirname(architecture_file_path))
+    from architecture import net_architecture
+    return net_architecture
 
 
 def copy_net(net):

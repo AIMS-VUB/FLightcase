@@ -19,10 +19,9 @@ import pandas as pd
 import torch.nn as nn
 import scipy.stats as stats
 import matplotlib.pyplot as plt
-from monai.networks.nets import DenseNet
 from sklearn.metrics import mean_absolute_error
 from utils.deep_learning.data import get_data_loader, split_data
-from utils.deep_learning.model import get_weights, get_weighted_average_model
+from utils.deep_learning.model import get_weights, get_weighted_average_model, import_net_architecture
 from utils.deep_learning.evaluation import evaluate
 from utils.communication import wait_for_file, send_file
 from train import train
@@ -129,6 +128,11 @@ if __name__ == "__main__":
     FL_plan_path = os.path.join(workspace_path_client, 'FL_plan.json')
     wait_for_file(FL_plan_path.replace('.json', '_transfer_completed.txt'))
 
+    # Wait for network architecture
+    print('==> Waiting for network architecture...')
+    architecture_path = os.path.join(workspace_path_client, 'architecture.py')
+    wait_for_file(architecture_path.replace('.py', '_transfer_completed.txt'))
+
     # Extract FL plan
     with open(FL_plan_path, 'r') as json_file:
         FL_plan_dict = json.load(json_file)
@@ -147,7 +151,7 @@ if __name__ == "__main__":
     # General deep learning settings
     criterion = get_criterion(criterion_txt)
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    net_architecture = DenseNet(3, 1, 1)
+    net_architecture = import_net_architecture(architecture_path)
     test_loader = None
 
     # Initialize variables related to validation loss tracking

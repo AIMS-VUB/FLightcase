@@ -18,9 +18,8 @@ import warnings
 import numpy as np
 import pandas as pd
 import datetime as dt
-from monai.networks.nets import DenseNet
 from utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
-                                       get_model_param_info)
+                                       get_model_param_info, import_net_architecture)
 from utils.communication import wait_for_file, send_file
 
 # Filter deprecation warnings
@@ -39,10 +38,8 @@ if __name__ == "__main__":
         description='Server for federated learning'
     )
     parser.add_argument('--settings_path', type=str, help='Path to the settings JSON')
-    parser.add_argument('--FL_plan_path', type=str, help='Path to the FL plan JSON')
     args = parser.parse_args()
     settings_path = args.settings_path
-    FL_plan_path = args.FL_plan_path
 
     print('\n\n==============================\nStarting federated learning :)\n==============================\n\n')
 
@@ -55,10 +52,8 @@ if __name__ == "__main__":
     workspace_path_server = settings_dict.get('workspace_path_server')          # Path to server workspace
     initial_state_dict_path = settings_dict.get('initial_state_dict_path')      # Path to initial state dict
     client_credentials_dict = settings_dict.get('client_credentials')           # Client credentials dict
-
-    # Create workspace folder
-    if not os.path.exists(workspace_path_server):
-        os.makedirs(workspace_path_server)
+    FL_plan_path = os.path.join(workspace_path_server, 'FL_plan.json')
+    architecture_path = os.path.join(workspace_path_server, 'architecture.py')
 
     # Wait for all clients to share their dataset size
     print('==> Collecting all client dataset sizes...')
@@ -81,17 +76,21 @@ if __name__ == "__main__":
             client_ws_path = file.read()
             client_workspace_path_dict.update({client_name: client_ws_path})
 
-    # Copy FL plan in workspace folder
-    os.system(f'cp {FL_plan_path} {os.path.join(workspace_path_server, "FL_plan.json")}')
-
     # Send FL plan to all clients
     print(f'==> Sending FL plan to all clients...')
     for client_name, credentials in client_credentials_dict.items():
         print(f'    ==> Sending to {client_name} ...')
         client_ip_address = credentials.get('ip_address')
         send_file(client_ip_address, credentials.get('username'), credentials.get('password'),
-                  os.path.join(workspace_path_server, 'FL_plan.json'), workspace_path_server,
-                  client_workspace_path_dict.get(client_name))
+                  FL_plan_path, workspace_path_server, client_workspace_path_dict.get(client_name))
+
+    # Send network architecture to all clients
+    print(f'==> Sending architecture to all clients...')
+    for client_name, credentials in client_credentials_dict.items():
+        print(f'    ==> Sending to {client_name} ...')
+        client_ip_address = credentials.get('ip_address')
+        send_file(client_ip_address, credentials.get('username'), credentials.get('password'),
+                  architecture_path, workspace_path_server, client_workspace_path_dict.get(client_name))
 
     # Extract FL plan
     with open(FL_plan_path, 'r') as json_file:
@@ -105,7 +104,7 @@ if __name__ == "__main__":
     print('\n')
 
     # Load initial network and save
-    net_architecture = DenseNet(3, 1, 1)
+    net_architecture = import_net_architecture(architecture_path)
     global_net = get_weights(net_architecture, initial_state_dict_path)
     model_path = os.path.join(workspace_path_server, 'initial_model.pt')
     torch.save(global_net.state_dict(), model_path)
