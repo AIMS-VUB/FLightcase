@@ -61,17 +61,18 @@ if __name__ == "__main__":
     # Extract settings
     with open(settings_path, 'r') as json_file:
         settings_dict = json.load(json_file)
-    workspace_path = settings_dict.get('workspace_path')            # Path to workspace for server and clients
-    client_name = settings_dict.get('client_name')                  # Client name
-    server_ip_address = settings_dict.get('server_ip_address')      # Server ip address
-    server_username = settings_dict.get('server_username')          # Server username
-    server_password = settings_dict.get('server_password')          # Server password
-    colname_id = settings_dict.get('colname_id')                    # Column name of the BIDS id column
-    colname_img_path = settings_dict.get('colname_img_path')        # Column name of the image paths
-    colname_label = settings_dict.get('colname_label')              # Column name of the label column
-    subject_ids = settings_dict.get('subject_ids')                  # Which subject ids to take into account?
-    bids_root_path = settings_dict.get('bids_root_path')            # Path to BIDS root
-    z_normalise_gt = settings_dict.get('z_normalise_gt')            # Perform z-normalisation of ground truth label?
+    workspace_path_client = settings_dict.get('workspace_path_client')  # Path to client workspace
+    client_name = settings_dict.get('client_name')                      # Client name
+    server_ip_address = settings_dict.get('server_ip_address')          # Server ip address
+    server_username = settings_dict.get('server_username')              # Server username
+    server_password = settings_dict.get('server_password')              # Server password
+    workspace_path_server = settings_dict.get('workspace_path_server')  # Path to server workspace
+    colname_id = settings_dict.get('colname_id')                        # Column name of the BIDS id column
+    colname_img_path = settings_dict.get('colname_img_path')            # Column name of the image paths
+    colname_label = settings_dict.get('colname_label')                  # Column name of the label column
+    subject_ids = settings_dict.get('subject_ids')                      # Which subject ids to take into account?
+    bids_root_path = settings_dict.get('bids_root_path')                # Path to BIDS root
+    z_normalise_gt = settings_dict.get('z_normalise_gt')                # Perform z-normalisation of ground truth label?
 
     # Load dataframe and preprocess
     df_path = os.path.join(bids_root_path, 'participants.tsv')
@@ -98,15 +99,34 @@ if __name__ == "__main__":
         df[f'z_{colname_label}'] = (df[colname_label] - df[colname_label].mean()) / df[colname_label].std()
 
     # Create workspace folder
-    if not os.path.exists(workspace_path):
-        os.makedirs(workspace_path)
+    if not os.path.exists(workspace_path_client):
+        os.makedirs(workspace_path_client)
 
     # Save filtered clinical dataframe to workspace path as reference
-    df.to_csv(os.path.join(workspace_path, 'participants.tsv'), sep='\t')
+    df.to_csv(os.path.join(workspace_path_client, 'participants.tsv'), sep='\t')
+
+    # Send dataset size to server
+    print('==> Send dataset size to server...')
+    dataset_size = df.shape[0]
+    dataset_size_txt_path = os.path.join(workspace_path_client, f'{client_name}_dataset_size.txt')
+    with open(dataset_size_txt_path, 'w') as file:
+        file.write(str(dataset_size))
+
+    send_file(server_ip_address, server_username, server_password, dataset_size_txt_path, workspace_path_client,
+              workspace_path_server)
+
+    # Send client workspace path to server
+    print('==> Send workspace path to server...')
+    ws_path_txt_path = os.path.join(workspace_path_client, f'{client_name}_ws_path.txt')
+    with open(ws_path_txt_path, 'w') as file:
+        file.write(workspace_path_client)
+
+    send_file(server_ip_address, server_username, server_password, ws_path_txt_path, workspace_path_client,
+              workspace_path_server)
 
     # Wait for FL plan
     print('==> Waiting for FL plan...')
-    FL_plan_path = os.path.join(workspace_path, 'FL_plan.json')
+    FL_plan_path = os.path.join(workspace_path_client, 'FL_plan.json')
     wait_for_file(FL_plan_path.replace('.json', '_transfer_completed.txt'))
 
     # Extract FL plan
@@ -125,15 +145,6 @@ if __name__ == "__main__":
     optimizer_txt = FL_plan_dict.get('optimizer')                   # Optimizer in txt format, lowercase (e.g. adam)
     tl_method = FL_plan_dict.get('tl_method')                       # Get transfer learning method
 
-    # Send dataset size to server
-    print('==> Send dataset size to server...')
-    dataset_size = df.shape[0]
-    dataset_size_txt_path = os.path.join(workspace_path, f'{client_name}_dataset_size.txt')
-    with open(dataset_size_txt_path, 'w') as file:
-        file.write(str(dataset_size))
-
-    send_file(server_ip_address, server_username, server_password, dataset_size_txt_path)
-
     # General deep learning settings
     criterion = get_criterion(criterion_txt)
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -151,11 +162,12 @@ if __name__ == "__main__":
         # Wait for global model to arrive
         print('==> Waiting for global model to arrive...')
         if fl_round == 1:
-            global_model_path = os.path.join(workspace_path, f'initial_model.pt')
-            global_txt_path = os.path.join(workspace_path, f'initial_model_transfer_completed.txt')
+            global_model_path = os.path.join(workspace_path_client, f'initial_model.pt')
+            global_txt_path = os.path.join(workspace_path_client, f'initial_model_transfer_completed.txt')
         else:
-            global_model_path = os.path.join(workspace_path, f'global_model_round_{fl_round-1}.pt')
-            global_txt_path = os.path.join(workspace_path, f'global_model_round_{fl_round-1}_transfer_completed.txt')
+            global_model_path = os.path.join(workspace_path_client, f'global_model_round_{fl_round-1}.pt')
+            global_txt_path = os.path.join(workspace_path_client,
+                                           f'global_model_round_{fl_round-1}_transfer_completed.txt')
 
         stop_training = wait_for_file(global_txt_path, stop_with_stop_file=True)
         if stop_training:
@@ -163,7 +175,7 @@ if __name__ == "__main__":
 
         # Create a state dict folder in the workspace for this training round
         print('==> Make preparations to start training...')
-        state_dict_folder_path = os.path.join(workspace_path, f'state_dicts_{client_name}_round_{fl_round}')
+        state_dict_folder_path = os.path.join(workspace_path_client, f'state_dicts_{client_name}_round_{fl_round}')
         if not os.path.exists(state_dict_folder_path):
             os.mkdir(state_dict_folder_path)
 
@@ -187,8 +199,8 @@ if __name__ == "__main__":
                                                    train_test_random_state=42, train_val_random_state=random_state)
             if fl_round == 1 and split_i == 0:  # fl_round starts from 1
                 train_overall_df = pd.concat([train_df, val_df], ignore_index=True)
-                train_overall_df.to_csv(os.path.join(workspace_path, 'train_overall_df.csv'), index=False)
-                test_df.to_csv(os.path.join(workspace_path, 'test_df.csv'), index=False)
+                train_overall_df.to_csv(os.path.join(workspace_path_client, 'train_overall_df.csv'), index=False)
+                test_df.to_csv(os.path.join(workspace_path_client, 'test_df.csv'), index=False)
             train_loader, n_train = get_data_loader(train_df, 'train', colnames_dict, batch_size, return_n=True)
             val_loader, n_val = get_data_loader(val_df, 'validation', colnames_dict, batch_size, return_n=True)
             test_loader, n_test = get_data_loader(test_df, 'test', colnames_dict, batch_size, return_n=True)
@@ -214,18 +226,20 @@ if __name__ == "__main__":
             path_error_dict.update({best_model_path: val_loss_list[0]})
 
         print('==> Send training results to server...')
-        train_results_df_path = os.path.join(workspace_path, f'train_results_{client_name}_round_{fl_round}.csv')
+        train_results_df_path = os.path.join(workspace_path_client, f'train_results_{client_name}_round_{fl_round}.csv')
         train_results_df.to_csv(train_results_df_path, index=False)
-        send_file(server_ip_address, server_username, server_password, train_results_df_path)
+        send_file(server_ip_address, server_username, server_password, train_results_df_path, workspace_path_client,
+                  workspace_path_server)
 
         # Get local model
         local_model = get_weighted_average_model(net_architecture, path_error_dict)
-        local_model_path = os.path.join(workspace_path, f'model_{client_name}_round_{fl_round}.pt')
+        local_model_path = os.path.join(workspace_path_client, f'model_{client_name}_round_{fl_round}.pt')
         torch.save(local_model.state_dict(), local_model_path)
 
         # Send to server
         print('==> Send model with weighted average fc to server ...')
-        send_file(server_ip_address, server_username, server_password, local_model_path)
+        send_file(server_ip_address, server_username, server_password, local_model_path, workspace_path_client,
+                  workspace_path_server)
 
         # Perform actions based on min validation loss across splits and epochs
         print('==> Validation loss tracking...')
@@ -242,7 +256,7 @@ if __name__ == "__main__":
 
     # Test final model
     print('==> Waiting for final model...')
-    final_model_path = os.path.join(workspace_path, 'final_model.pt')
+    final_model_path = os.path.join(workspace_path_client, 'final_model.pt')
     wait_for_file(final_model_path.replace('final_model.pt', 'final_model_transfer_completed.txt'))
     print('==> Testing final model...')
     global_net = get_weights(net_architecture, final_model_path)
@@ -252,7 +266,7 @@ if __name__ == "__main__":
 
     # Save predictions and ground truth to workspace
     true_pred_test_df = pd.DataFrame({'true': true_labels_test, 'pred': pred_labels_test})
-    true_pred_test_df.to_csv(os.path.join(workspace_path, f'true_pred_test_{client_name}.csv'))
+    true_pred_test_df.to_csv(os.path.join(workspace_path_client, f'true_pred_test_{client_name}.csv'))
 
     # Create scatterplot
     fig, ax = plt.subplots()
@@ -260,7 +274,7 @@ if __name__ == "__main__":
     ax.set_title(f'Test performance {client_name}:\nMAE: {test_mae:.2f}, r: {r_true_pred:.2f} (p: {p_true_pred:.3f})')
     ax.set_xlabel('True')
     ax.set_ylabel('Pred')
-    plt.savefig(os.path.join(workspace_path, f'scatterplot_true_pred_test_{client_name}.png'))
+    plt.savefig(os.path.join(workspace_path_client, f'scatterplot_true_pred_test_{client_name}.png'))
 
     # Send results to server
     print('==> Sending test results to server...')
@@ -284,6 +298,7 @@ if __name__ == "__main__":
         'pred_shapiro-wilk_stat': [stat_sw_pred],
         'pred_shapiro-wilk_p': [p_sw_pred]
     })
-    test_df_path = os.path.join(workspace_path, f'test_results_{client_name}.csv')
+    test_df_path = os.path.join(workspace_path_client, f'test_results_{client_name}.csv')
     test_df.to_csv(test_df_path, index=False)
-    send_file(server_ip_address, server_username, server_password, test_df_path)
+    send_file(server_ip_address, server_username, server_password, test_df_path, workspace_path_client,
+              workspace_path_server)
