@@ -79,8 +79,11 @@ if __name__ == "__main__":
 
     if colname_img_path is None:
         colname_img_path = 'img_path'
+        # For now, only use the first session
+        ses = 'ses-01'
         df[colname_img_path] = df[colname_id].apply(
-            lambda x: os.path.join(bids_root_path, 'derivatives', 'Wood_2022', str(x), 'anat', f'{x}_T1w.nii.gz'))
+            lambda x: os.path.join(bids_root_path, 'derivatives', 'Wood_2022', str(x), 'anat', ses,
+                                   f'{x}_{ses}_T1w.nii.gz'))
     if not z_normalise_gt:
         colnames_dict = {'id': colname_id, 'img_path': colname_img_path, 'label': colname_label}
     else:
