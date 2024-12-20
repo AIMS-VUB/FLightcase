@@ -101,16 +101,20 @@ def clean_up_workspace(workspace_dir_path, server_or_client):
         break
 
     # Move contents of workspace directory to data and time folder
+    # Note: exception is FL plan and architecture. Keep in server parent folder for ease of running more experiments
     date_time_folder_name = f'{str(dt.datetime.now().strftime("%Y-%m-%d_%Hh%Mm%Ss"))}'
     date_time_folder_path = os.path.join(workspace_dir_path, date_time_folder_name)
     if not os.path.exists(date_time_folder_path):
         os.mkdir(date_time_folder_path)
     for element in os.listdir(workspace_dir_path):
+        src_file_path = os.path.join(workspace_dir_path, element)
+        dest_file_path = os.path.join(workspace_dir_path, date_time_folder_name, element)
         if is_experiment_folder(element):
             continue
-        src_file_path = os.path.join(root, element)
-        dest_file_path = os.path.join(root, date_time_folder_name, element)
-        os.system(f'mv {src_file_path} {dest_file_path}')
+        elif element in ['architecture.py', 'FL_plan.json'] and server_or_client == 'server':
+            os.system(f'cp {src_file_path} {dest_file_path}')
+        else:
+            os.system(f'mv {src_file_path} {dest_file_path}')
 
 
 def is_experiment_folder(dir_name):
