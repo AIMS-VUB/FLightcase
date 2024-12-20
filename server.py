@@ -20,7 +20,7 @@ import pandas as pd
 import datetime as dt
 from utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
                                        get_model_param_info, import_net_architecture)
-from utils.communication import wait_for_file, send_file
+from utils.communication import wait_for_file, send_file, remove_transfer_completion_files
 
 # Filter deprecation warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -216,6 +216,10 @@ if __name__ == "__main__":
         test_mae_overall += test_mae_client * n_client / sum(client_dataset_size_dict.values())
     with open(os.path.join(workspace_path_server, 'overall_test_mae.txt'), 'w') as txt_file:
         txt_file.write(f'Overall test MAE: {test_mae_overall}')
+
+    # Remove _transfer_completed.txt files
+    print('Removing _transfer_completed.txt files...')
+    remove_transfer_completion_files(workspace_path_server)
 
     # Print total FL duration
     fl_stop_time = dt.datetime.now()
