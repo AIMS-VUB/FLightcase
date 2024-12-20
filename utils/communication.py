@@ -3,7 +3,9 @@ Functions related to communication between server and client
 """
 
 import os
+import re
 import paramiko
+import datetime as dt
 from scp import SCPClient
 
 
@@ -64,6 +66,55 @@ def wait_for_file(file_path, stop_with_stop_file = False):
         else:
             pass
     return stop_file_present
+
+
+def clean_up_workspace(workspace_dir_path, server_or_client):
+    # Remove _transfer_completed.txt files
+    remove_transfer_completion_files(workspace_dir_path)
+
+    # Create subdirectories per category
+    subdirs = ['state_dicts', 'results', 'data']
+    if server_or_client == 'server':
+        subdirs.remove('data')
+    for subdir in subdirs:
+        subdir_path = os.path.join(workspace_dir_path, subdir)
+        if not os.path.exists(subdir_path):
+            os.mkdir(subdir_path)
+
+    # Move files to subdirectories
+    for root, dirs, files in os.walk(workspace_dir_path):
+        for file in files:
+            src_file_path = os.path.join(root, file)
+            if any(file.endswith(ext) for ext in ['.png', '.csv']):
+                dest_file_path = os.path.join(root, 'results', file)
+                os.system(f'mv {src_file_path} {dest_file_path}')
+            elif file.endswith('tsv'):
+                dest_file_path = os.path.join(root, 'data', file)
+                os.system(f'mv {src_file_path} {dest_file_path}')
+            elif file.endswith('.pt'):
+                dest_file_path = os.path.join(root, 'state_dicts', file)
+                os.system(f'mv {src_file_path} {dest_file_path}')
+            elif any(file.endswith(ext) for ext in ['.json', '.txt', '.py', '.pyc']):
+                pass
+            else:
+                raise ValueError(f'No handler specified for file extension (file = {file})')
+        break
+
+    # Move contents of workspace directory to data and time folder
+    date_time_folder_name = f'{str(dt.datetime.now().strftime("%Y-%m-%d_%Hh%Mm%Ss"))}'
+    date_time_folder_path = os.path.join(workspace_dir_path, date_time_folder_name)
+    if not os.path.exists(date_time_folder_path):
+        os.mkdir(date_time_folder_path)
+    for element in os.listdir(workspace_dir_path):
+        if is_experiment_folder(element):
+            continue
+        src_file_path = os.path.join(root, element)
+        dest_file_path = os.path.join(root, date_time_folder_name, element)
+        os.system(f'mv {src_file_path} {dest_file_path}')
+
+
+def is_experiment_folder(dir_name):
+    return re.fullmatch('\A[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}h[0-9]{2}m[0-9]{2}s\Z', dir_name)
 
 
 def remove_transfer_completion_files(workspace_dir_path, print_tracking=False):

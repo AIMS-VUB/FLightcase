@@ -23,7 +23,7 @@ from sklearn.metrics import mean_absolute_error
 from utils.deep_learning.data import get_data_loader, split_data
 from utils.deep_learning.model import get_weights, get_weighted_average_model, import_net_architecture, copy_net
 from utils.deep_learning.evaluation import evaluate
-from utils.communication import wait_for_file, send_file, remove_transfer_completion_files
+from utils.communication import wait_for_file, send_file, clean_up_workspace
 from train import train
 
 # Suppress printing of paramiko info
@@ -297,6 +297,6 @@ if __name__ == "__main__":
     send_file(server_ip_address, server_username, server_password, test_df_path, workspace_path_client,
               workspace_path_server)
 
-    # Remove _transfer_completed.txt files
-    print('Removing _transfer_completed.txt files...')
-    remove_transfer_completion_files(workspace_path_client)
+    # Clean up workspace
+    print('Cleaning up workspace...')
+    clean_up_workspace(workspace_path_client, server_or_client='client')
