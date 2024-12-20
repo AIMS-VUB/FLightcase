@@ -72,4 +72,4 @@ def remove_transfer_completion_files(workspace_dir, print_tracking=False):
             if file.endswith('_transfer_completed.txt'):
                 if print_tracking:
                     print(f'removing: {os.path.join(root, file)}')
-                os.system(f'rm {os.path.join(root, file)}')
+                os.remove(os.path.join(root, file))
