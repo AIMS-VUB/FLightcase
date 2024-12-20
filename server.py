@@ -139,20 +139,20 @@ if __name__ == "__main__":
         print('==> Combining local model weights and saving...')
         local_model_paths_dict = {client_name: os.path.join(workspace_path_server, f'model_{client_name}_round_{fl_round}.pt')
                                   for client_name in client_credentials_dict.keys()}
-        local_state_dicts_dict = {k: torch.load(v, map_location='cpu') for k, v in local_model_paths_dict.items()}
+        client_sd_sample_dict = {k: torch.load(v, map_location='cpu') for k, v in local_model_paths_dict.items()}
         if n_clients_set is not None:
-            local_state_dicts_dict = get_n_random_pairs_from_dict(local_state_dicts_dict, n_clients_set, fl_round)
-            print(f'    ==> Clients in sample (random seed = {fl_round}): {list(local_state_dicts_dict.keys())}')
-        new_global_state_dict = weighted_avg_local_models(local_state_dicts_dict,
+            client_sd_sample_dict = get_n_random_pairs_from_dict(client_sd_sample_dict, n_clients_set, fl_round)
+            print(f'    ==> Clients in sample (random seed = {fl_round}): {list(client_sd_sample_dict.keys())}')
+        new_global_state_dict = weighted_avg_local_models(client_sd_sample_dict,
                                                           {k: client_dataset_size_dict.get(k)
-                                                           for k in local_state_dicts_dict.keys()})
+                                                           for k in client_sd_sample_dict.keys()})
         model_path = os.path.join(workspace_path_server, f'global_model_round_{fl_round}.pt')  # Overwrite model_path
         torch.save(new_global_state_dict, model_path)
 
         # Calculate average validation loss
         val_loss_avg = 0
         print('==> Average validation loss tracking...')
-        for client_name in client_credentials_dict.keys():
+        for client_name in client_sd_sample_dict.keys():
             wait_for_file(os.path.join(
                 workspace_path_server, f'train_results_{client_name}_round_{fl_round}_transfer_completed.txt'
             ))
