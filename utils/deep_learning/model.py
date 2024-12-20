@@ -58,20 +58,19 @@ def loss_to_contribution(loss_list):
     return contribution_weights_normalised
 
 
-def get_weighted_average_model(net_architecture, path_error_dict):
+def get_weighted_average_model(model_error_dict):
     """
     Get weighted average of multiple models.
     The contribution of a model is based on its loss (higher loss = lower contribution)
     """
     # Convert loss to normalised contribution (so that sum of the contributions is 1)
-    path_contribution_dict = dict(zip(path_error_dict.keys(), loss_to_contribution(path_error_dict.values())))
+    model_contribution_dict = dict(zip(model_error_dict.keys(), loss_to_contribution(model_error_dict.values())))
 
     state_dict_avg = OrderedDict()
-    for i, (path, contribution) in enumerate(path_contribution_dict.items()):
+    for i, (model, contribution) in enumerate(model_contribution_dict.items()):
         # Load network weights
-        net = get_weights(copy_net(net_architecture), path)
-        net.to(torch.device('cpu'))
-        state_dict = net.state_dict()
+        model.to(torch.device('cpu'))
+        state_dict = model.state_dict()
 
         for key in state_dict.keys():
             state_dict_contribution = state_dict[key] * contribution
@@ -80,8 +79,10 @@ def get_weighted_average_model(net_architecture, path_error_dict):
             else:
                 state_dict_avg[key] += state_dict_contribution
 
-    weighted_avg_net = DenseNet(3, 1, 1)
+    # Load average net on model of last iteration
+    weighted_avg_net = copy_net(model)
     weighted_avg_net.load_state_dict(state_dict_avg)
+
     return weighted_avg_net
 
 

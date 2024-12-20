@@ -14,7 +14,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from sklearn.metrics import mean_absolute_error
 from monai.networks.nets import DenseNet
 from utils.deep_learning.data import get_data_loader, split_data
-from utils.deep_learning.model import get_weights
+from utils.deep_learning.model import get_weights, copy_net
 from utils.deep_learning.evaluation import evaluate
 
 
@@ -31,7 +31,8 @@ def print_epoch_message(epoch, lr, train_loss, train_mae, val_loss, val_mae, bes
     print(epoch_message)
 
 
-def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion, scheduler, state_dict_output_dir_path):
+def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion, scheduler, save_best_sd=False,
+          state_dict_output_dir_path=None):
     """ Training function
 
     :param n_epochs: int, number of epochs
@@ -42,12 +43,19 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
     :param net: torch neural network
     :param criterion: torch.nn loss criterion. CAVE: use "sum" as reduction!
     :param scheduler: torch lr scheduler
+    :param save_best_sd: bool, save the best state dict?
     :param state_dict_output_dir_path: str, path to directory to write state dicts to
     :return: str, path to state dict of the best model
     """
+
+    # Verify whether output directory specified when saving state dicts
+    if save_best_sd and state_dict_output_dir_path is None:
+        raise ValueError('Please specify state_dict_output_dir_path')
+
     # Initialize variables
     best_loss = 1e9
     n_worse_epochs = 0
+    best_model = None
     best_model_path = None
     train_loss_list = []
     val_loss_list = []
@@ -104,12 +112,13 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
         # - If equal or higher, increase bad epochs with one
         if val_loss < best_loss:
             best_loss = val_loss
-            best_model_path = os.path.join(
-                state_dict_output_dir_path,
-                f'{str(dt.datetime.now().strftime("%Y-%m-%d_%Hh%Mm%Ss"))}.pt'
-            )
-            torch.save(net.state_dict(), best_model_path)
             n_worse_epochs = 0
+            best_model = copy_net(net)
+            if save_best_sd:
+                best_model_path = os.path.join(
+                    state_dict_output_dir_path,
+                    f'best_model_epoch={epoch}_time={str(dt.datetime.now().strftime("%Y-%m-%d_%Hh%Mm%Ss"))}.pt'
+                )
         else:
             n_worse_epochs += 1
 
@@ -123,7 +132,11 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
         # Epoch print message
         print_epoch_message(epoch, lr, train_loss, train_mae, val_loss, val_mae, best_loss, n_worse_epochs)
 
-    return best_model_path, train_loss_list, val_loss_list
+    # Save best state dict if desired
+    if save_best_sd:
+        torch.save(best_model.state_dict(), best_model_path)
+
+    return best_model, train_loss_list, val_loss_list
 
 
 if __name__ == "__main__":
@@ -188,5 +201,8 @@ if __name__ == "__main__":
 
     # Train
     print('**BEGINNING TRAINING***')
+    save_best_sd = False
+    if state_dict_output_dir_path is not None:
+        save_best_sd = True
     best_model_path = train(args.n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
-                            scheduler, state_dict_output_dir_path)
+                            scheduler, save_best_sd, state_dict_output_dir_path)

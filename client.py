@@ -21,7 +21,7 @@ import scipy.stats as stats
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error
 from utils.deep_learning.data import get_data_loader, split_data
-from utils.deep_learning.model import get_weights, get_weighted_average_model, import_net_architecture
+from utils.deep_learning.model import get_weights, get_weighted_average_model, import_net_architecture, copy_net
 from utils.deep_learning.evaluation import evaluate
 from utils.communication import wait_for_file, send_file
 from train import train
@@ -169,12 +169,6 @@ if __name__ == "__main__":
         if stop_training:
             break
 
-        # Create a state dict folder in the workspace for this training round
-        print('==> Make preparations to start training...')
-        state_dict_folder_path = os.path.join(workspace_path_client, f'state_dicts_{client_name}_round_{fl_round}')
-        if not os.path.exists(state_dict_folder_path):
-            os.mkdir(state_dict_folder_path)
-
         # Load global network
         global_net = get_weights(net_architecture, global_model_path)
 
@@ -182,8 +176,9 @@ if __name__ == "__main__":
         optimizer = get_optimizer(optimizer_txt, global_net, lr)
 
         # Initiate variables
-        path_error_dict = {}
+        model_error_dict = {}
         mean_val_loss = 0
+        best_model = None
         random_states = range(n_splits*fl_round, n_splits*fl_round + n_splits)  # Assure random state is never repeated
         train_results_df = pd.DataFrame()
         for split_i, random_state in enumerate(random_states):
@@ -202,8 +197,9 @@ if __name__ == "__main__":
 
             # Train
             print('==> Start training...')
-            best_model_path, train_loss_list, val_loss_list = train(1, device, train_loader, val_loader, optimizer,
-                                                                    global_net, criterion, None, state_dict_folder_path)
+            best_model, train_loss_list, val_loss_list = train(1, device, train_loader, val_loader, optimizer,
+                                                               global_net, criterion, None, False,
+                                                               None)
 
             train_results_df_i = pd.DataFrame({'random_state': [random_state],
                                                'fl_round': [fl_round],
@@ -218,7 +214,7 @@ if __name__ == "__main__":
             mean_val_loss += val_loss_list[0]/n_splits
 
             # Update dict
-            path_error_dict.update({best_model_path: val_loss_list[0]})
+            model_error_dict.update({best_model: val_loss_list[0]})
 
         print('==> Send training results to server...')
         train_results_df_path = os.path.join(workspace_path_client, f'train_results_{client_name}_round_{fl_round}.csv')
@@ -227,7 +223,10 @@ if __name__ == "__main__":
                   workspace_path_server)
 
         # Get local model
-        local_model = get_weighted_average_model(net_architecture, path_error_dict)
+        if n_splits > 1:
+            local_model = get_weighted_average_model(model_error_dict)
+        else:
+            local_model = copy_net(best_model)
         local_model_path = os.path.join(workspace_path_client, f'model_{client_name}_round_{fl_round}.pt')
         torch.save(local_model.state_dict(), local_model_path)
 
