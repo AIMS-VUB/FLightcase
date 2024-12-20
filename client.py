@@ -71,7 +71,6 @@ if __name__ == "__main__":
     colname_label = settings_dict.get('colname_label')                  # Column name of the label column
     subject_ids = settings_dict.get('subject_ids')                      # Which subject ids to take into account?
     bids_root_path = settings_dict.get('bids_root_path')                # Path to BIDS root
-    z_normalise_gt = settings_dict.get('z_normalise_gt')                # Perform z-normalisation of ground truth label?
 
     # Load dataframe and preprocess
     df_path = os.path.join(bids_root_path, 'participants.tsv')
@@ -84,18 +83,11 @@ if __name__ == "__main__":
         df[colname_img_path] = df[colname_id].apply(
             lambda x: os.path.join(bids_root_path, 'derivatives', 'Wood_2022', str(x), 'anat', ses,
                                    f'{x}_{ses}_T1w.nii.gz'))
-    if not z_normalise_gt:
-        colnames_dict = {'id': colname_id, 'img_path': colname_img_path, 'label': colname_label}
-    else:
-        colnames_dict = {'id': colname_id, 'img_path': colname_img_path, 'label': f"z_{colname_label}"}
+
+    colnames_dict = {'id': colname_id, 'img_path': colname_img_path, 'label': colname_label}
 
     if subject_ids is not None:
         df = df[df[colname_id].isin(subject_ids)].reset_index(drop=True)
-
-    # Z-normalise?
-    # Note: after selecting subject ids
-    if z_normalise_gt:
-        df[f'z_{colname_label}'] = (df[colname_label] - df[colname_label].mean()) / df[colname_label].std()
 
     # Create workspace folder
     if not os.path.exists(workspace_path_client):
