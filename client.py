@@ -168,6 +168,7 @@ if __name__ == "__main__":
             global_model_path = os.path.join(workspace_path_client, f'initial_model.pt')
             global_txt_path = os.path.join(workspace_path_client, f'initial_model_transfer_completed.txt')
         else:
+            # Load model from previous round as starting point (hence fl_round - 1)
             global_model_path = os.path.join(workspace_path_client, f'global_model_round_{fl_round-1}.pt')
             global_txt_path = os.path.join(workspace_path_client,
                                            f'global_model_round_{fl_round-1}_transfer_completed.txt')
