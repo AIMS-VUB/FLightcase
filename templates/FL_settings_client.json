@@ -1,7 +1,7 @@
 {
     "workspace_path_client": "[ADAPT] path_to_FL_workspace_repository",
     "client_name": "[ADAPT] name_of_client_computer",
-    "server_ip_address": "[ADAPT] ip_address_server_computer",
+    "server_ip_address": "[ADAPT] ip_address_server_computer (local simulation: 127.0.0.1)",
     "server_username": "[ADAPT] username_server_computer",
     "server_password": "[ADAPT] password_server_computer",
     "workspace_path_server": "[ADAPT] path_to_FL_workspace_repository",
