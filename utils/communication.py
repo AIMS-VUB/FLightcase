@@ -66,8 +66,8 @@ def wait_for_file(file_path, stop_with_stop_file = False):
     return stop_file_present
 
 
-def remove_transfer_completion_files(workspace_dir, print_tracking=False):
-    for root, dirs, files in os.walk(workspace_dir):
+def remove_transfer_completion_files(workspace_dir_path, print_tracking=False):
+    for root, dirs, files in os.walk(workspace_dir_path):
         for file in files:
             if file.endswith('_transfer_completed.txt'):
                 if print_tracking:
