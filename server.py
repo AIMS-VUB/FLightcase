@@ -22,6 +22,7 @@ from utils.deep_learning.model import (get_weights, weighted_avg_local_models, g
                                        get_model_param_info, import_net_architecture)
 from utils.communication import clean_up_workspace, send_to_all_clients, collect_client_info
 from utils.tracking import print_FL_plan
+from utils.results import calculate_overall_test_mae
 
 # Filter deprecation warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -161,14 +162,7 @@ if __name__ == "__main__":
     # Calculate overall test MAE
     print('==> Calculate overall test MAE...')
     client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'test_results', '.csv')
-    test_mae_overall = 0
-    for client_name in client_names:
-        n_client = client_info_dict[client_name]['dataset_size']
-        test_df_client = client_info_dict[client_name]['test_results']
-        test_mae_client = test_df_client['test_mae'].iloc[0]
-        test_mae_overall += test_mae_client * n_client / n_sum_clients
-    with open(os.path.join(workspace_path_server, 'overall_test_mae.txt'), 'w') as txt_file:
-        txt_file.write(f'Overall test MAE: {test_mae_overall}')
+    calculate_overall_test_mae(client_info_dict, workspace_path_server, save=True)
 
     # Clean up workspace
     print('Cleaning up workspace...')
