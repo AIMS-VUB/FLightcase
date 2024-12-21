@@ -21,6 +21,7 @@ import datetime as dt
 from utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
                                        get_model_param_info, import_net_architecture)
 from utils.communication import clean_up_workspace, send_to_all_clients, collect_client_info
+from utils.tracking import print_FL_plan
 
 # Filter deprecation warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -65,16 +66,13 @@ if __name__ == "__main__":
     send_to_all_clients(client_info_dict, FL_plan_path, workspace_path_server)
     send_to_all_clients(client_info_dict, architecture_path, workspace_path_server)
 
-    # Extract FL plan
+    # Extract and print FL plan
     with open(FL_plan_path, 'r') as json_file:
         FL_plan_dict = json.load(json_file)
     n_rounds = int(FL_plan_dict.get('n_rounds'))                    # Number of FL rounds
     n_clients_set = FL_plan_dict.get('n_clients_set')               # Number of clients in set for averaging
     patience_stop = int(FL_plan_dict.get('pat_stop'))               # N fl rounds stagnating val loss before stopping
-    print('\n========\nFL plan:\n========\n')
-    for k, v in FL_plan_dict.items():
-        print(f'- {k}: {v}')
-    print('\n')
+    print_FL_plan(FL_plan_dict)
 
     # Load initial network and save
     net_architecture = import_net_architecture(architecture_path)
