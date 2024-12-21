@@ -22,7 +22,7 @@ from utils.deep_learning.model import (get_weights, weighted_avg_local_models, g
                                        get_model_param_info, import_net_architecture)
 from utils.communication import clean_up_workspace, send_to_all_clients, collect_client_info
 from utils.tracking import print_FL_plan
-from utils.results import calculate_overall_test_mae
+from utils.results import update_avg_val_loss, calculate_overall_test_mae
 
 # Filter deprecation warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -119,9 +119,7 @@ if __name__ == "__main__":
         print('==> Average validation loss tracking...')
         client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'train_results',
                                                '.csv', fl_round)
-        for client_name in client_info_dict_sample.keys():
-            train_results_client_df = client_info_dict[client_name][f'round_{fl_round}']['train_results']
-            val_loss_avg += train_results_client_df['val_loss'].mean() / len(client_info_dict_sample)
+        val_loss_avg = update_avg_val_loss(client_info_dict_sample, val_loss_avg, fl_round)
         print(f'     ==> val loss ref: {val_loss_ref} || val loss avg: {val_loss_avg}')
         avg_val_loss_clients.append(val_loss_avg)
 

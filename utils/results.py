@@ -5,6 +5,13 @@ Functions related to results calculation and integration
 import os
 
 
+def update_avg_val_loss(client_info_dict, val_loss_avg, fl_round):
+    for client_name in client_info_dict.keys():
+        train_results_client_df = client_info_dict[client_name][f'round_{fl_round}']['train_results']
+        val_loss_avg += train_results_client_df['val_loss'].mean() / len(client_info_dict)
+    return val_loss_avg
+
+
 def calculate_overall_test_mae(client_info_dict, workspace_path_server, save=True):
     test_mae_overall = 0
     n_sum_clients = sum([dct['dataset_size'] for dct in client_info_dict.values()])
