@@ -20,7 +20,7 @@ import pandas as pd
 import datetime as dt
 from utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
                                        get_model_param_info, import_net_architecture)
-from utils.communication import wait_for_file, clean_up_workspace, send_to_all_clients
+from utils.communication import clean_up_workspace, send_to_all_clients, collect_client_info
 
 # Filter deprecation warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -56,26 +56,10 @@ if __name__ == "__main__":
     FL_plan_path = os.path.join(workspace_path_server, 'FL_plan.json')
     architecture_path = os.path.join(workspace_path_server, 'architecture.py')
 
-    # Wait for all clients to share their dataset size
-    print('==> Collecting all client dataset sizes...')
-    n_sum_clients = 0
-    for client_name in client_names:
-        client_dataset_txt_path = os.path.join(workspace_path_server, f'{client_name}_dataset_size.txt')
-        wait_for_file(client_dataset_txt_path.replace('.txt', '_transfer_completed.txt'))
-        with open(client_dataset_txt_path, 'r') as file:
-            n_client = int(file.read())
-            n_sum_clients += n_client
-            client_info_dict[client_name]['dataset_size'] = n_client
-            print(f'     ==> {client_name}: n = {n_client}')
-
-    # Wait for all clients to share their workspace_path
-    print('==> Collecting all client workspace paths...')
-    for client_name in client_names:
-        client_ws_path_txt_path = os.path.join(workspace_path_server, f'{client_name}_ws_path.txt')
-        wait_for_file(client_ws_path_txt_path.replace('.txt', '_transfer_completed.txt'))
-        with open(client_ws_path_txt_path, 'r') as file:
-            client_ws_path = file.read()
-            client_info_dict[client_name]['workspace_path'] = client_ws_path
+    # Wait for all clients to share their workspace path and dataset size
+    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'dataset_size', '.txt')
+    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'ws_path', '.txt')
+    n_sum_clients = sum([dct['dataset_size'] for dct in client_info_dict.values()])
 
     # Send to all clients: FL plan and network architecture
     send_to_all_clients(client_info_dict, FL_plan_path, workspace_path_server)
@@ -109,42 +93,36 @@ if __name__ == "__main__":
 
     # Start federated learning
     for fl_round in range(1, n_rounds + 1):  # Start counting from 1
+        # Add round key to fill in client_info_dict
+        [client_info_dict[cl].update({f'round_{fl_round}': {}}) for cl in client_names]
+
         print(f'\n*****************\nRound {fl_round}\n*****************\n')
         round_start_time = dt.datetime.now()
 
         # Send global model to all clients
         send_to_all_clients(client_info_dict, model_path, workspace_path_server)
         print('==> Model shared with all clients. Waiting for updated client models...')
-        txt_file_paths = [os.path.join(workspace_path_server, f'model_{client_name}_round_{fl_round}_transfer_completed.txt')
-                          for client_name in client_names]
-        for txt_file_path in txt_file_paths:
-            wait_for_file(txt_file_path)
+        client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'model', '.pt', fl_round, net_architecture)
 
         # Create new global model by combining local models
         print('==> Combining local model weights and saving...')
-        local_model_paths_dict = {client_name: os.path.join(workspace_path_server, f'model_{client_name}_round_{fl_round}.pt')
-                                  for client_name in client_names}
-        client_sd_sample_dict = {k: torch.load(v, map_location='cpu') for k, v in local_model_paths_dict.items()}
         if n_clients_set is not None:
-            client_sd_sample_dict = get_n_random_pairs_from_dict(client_sd_sample_dict, n_clients_set, fl_round)
-            print(f'    ==> Clients in sample (random seed = {fl_round}): {list(client_sd_sample_dict.keys())}')
-
-        new_global_state_dict = weighted_avg_local_models(client_sd_sample_dict,
-                                                          {cl: client_info_dict.get(cl).get('dataset_size')
-                                                           for cl in client_sd_sample_dict.keys()})
+            client_info_dict_sample = get_n_random_pairs_from_dict(client_info_dict, n_clients_set, fl_round)
+            print(f'    ==> Clients in sample (random seed = {fl_round}): {list(client_info_dict_sample.keys())}')
+        else:
+            client_info_dict_sample = client_info_dict
+        new_global_state_dict = weighted_avg_local_models(client_info_dict_sample, fl_round)
         model_path = os.path.join(workspace_path_server, f'global_model_round_{fl_round}.pt')  # Overwrite model_path
         torch.save(new_global_state_dict, model_path)
 
         # Calculate average validation loss
         val_loss_avg = 0
         print('==> Average validation loss tracking...')
-        for client_name in client_sd_sample_dict.keys():
-            wait_for_file(os.path.join(
-                workspace_path_server, f'train_results_{client_name}_round_{fl_round}_transfer_completed.txt'
-            ))
-            filename = f'train_results_{client_name}_round_{fl_round}.csv'
-            train_results_client_df = pd.read_csv(os.path.join(workspace_path_server, filename))
-            val_loss_avg += train_results_client_df['val_loss'].mean() / len(client_sd_sample_dict)
+        client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'train_results',
+                                               '.csv', fl_round)
+        for client_name in client_info_dict_sample.keys():
+            train_results_client_df = client_info_dict[client_name][f'round_{fl_round}']['train_results']
+            val_loss_avg += train_results_client_df['val_loss'].mean() / len(client_info_dict_sample)
         print(f'     ==> val loss ref: {val_loss_ref} || val loss avg: {val_loss_avg}')
         avg_val_loss_clients.append(val_loss_avg)
 
@@ -184,13 +162,11 @@ if __name__ == "__main__":
 
     # Calculate overall test MAE
     print('==> Calculate overall test MAE...')
+    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'test_results', '.csv')
     test_mae_overall = 0
     for client_name in client_names:
-        print(f'    ==> Wait for test results {client_name}...')
         n_client = client_info_dict[client_name]['dataset_size']
-        test_results_txt_path = os.path.join(workspace_path_server, f'test_results_{client_name}_transfer_completed.txt')
-        wait_for_file(test_results_txt_path)
-        test_df_client = pd.read_csv(test_results_txt_path.replace('_transfer_completed.txt', '.csv'))
+        test_df_client = client_info_dict[client_name]['test_results']
         test_mae_client = test_df_client['test_mae'].iloc[0]
         test_mae_overall += test_mae_client * n_client / n_sum_clients
     with open(os.path.join(workspace_path_server, 'overall_test_mae.txt'), 'w') as txt_file:

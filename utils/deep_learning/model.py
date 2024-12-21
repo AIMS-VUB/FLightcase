@@ -86,22 +86,23 @@ def get_weighted_average_model(model_error_dict):
     return weighted_avg_net
 
 
-def weighted_avg_local_models(state_dicts_dict, size_dict):
+def weighted_avg_local_models(client_info_dict_sample, fl_round):
     """ Get weighted average of local models
 
-    :param state_dicts_dict: dict, key: client ip address, value: local state dict
-    :param size_dict: dict, key: client ip address, value: dataset size
+    :param client_info_dict_sample: dict, key: client name, value: client info
+    :param fl_round: int, federated learning round
     :return: weighted average state dict of local state dicts
     """
 
-    n_sum = sum(size_dict.values())
-    clients = list(state_dicts_dict.keys())
-    state_dict_keys = state_dicts_dict.get(clients[0]).keys()
+    n_sum = sum([dct['dataset_size'] for dct in client_info_dict_sample.values()])
+    clients = list(client_info_dict_sample.keys())
+    first_client_model = client_info_dict_sample[clients[0]][f'round_{fl_round}']['model']
+    state_dict_keys = first_client_model.state_dict().keys()
 
     state_dict_avg = OrderedDict()
     for i, client in enumerate(clients):
-        local_state_dict = state_dicts_dict.get(client)
-        n_client = size_dict.get(client)
+        local_state_dict = client_info_dict_sample[client][f'round_{fl_round}']['model'].state_dict()
+        n_client = client_info_dict_sample[client]['dataset_size']
         for key in state_dict_keys:
             state_dict_contribution = (n_client * local_state_dict[key]) / n_sum
             if i == 0:

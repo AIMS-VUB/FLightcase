@@ -217,7 +217,7 @@ if __name__ == "__main__":
             model_error_dict.update({best_model: val_loss_list[0]})
 
         print('==> Send training results to server...')
-        train_results_df_path = os.path.join(workspace_path_client, f'train_results_{client_name}_round_{fl_round}.csv')
+        train_results_df_path = os.path.join(workspace_path_client, f'{client_name}_round_{fl_round}_train_results.csv')
         train_results_df.to_csv(train_results_df_path, index=False)
         send_file(server_ip_address, server_username, server_password, train_results_df_path, workspace_path_client,
                   workspace_path_server)
@@ -227,7 +227,7 @@ if __name__ == "__main__":
             local_model = get_weighted_average_model(model_error_dict)
         else:
             local_model = copy_net(best_model)
-        local_model_path = os.path.join(workspace_path_client, f'model_{client_name}_round_{fl_round}.pt')
+        local_model_path = os.path.join(workspace_path_client, f'{client_name}_round_{fl_round}_model.pt')
         torch.save(local_model.state_dict(), local_model_path)
 
         # Send to server
@@ -292,7 +292,7 @@ if __name__ == "__main__":
         'pred_shapiro-wilk_stat': [stat_sw_pred],
         'pred_shapiro-wilk_p': [p_sw_pred]
     })
-    test_df_path = os.path.join(workspace_path_client, f'test_results_{client_name}.csv')
+    test_df_path = os.path.join(workspace_path_client, f'{client_name}_test_results.csv')
     test_df.to_csv(test_df_path, index=False)
     send_file(server_ip_address, server_username, server_password, test_df_path, workspace_path_client,
               workspace_path_server)

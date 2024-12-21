@@ -4,9 +4,15 @@ Functions related to communication between server and client
 
 import os
 import re
+import sys
+import pathlib
 import paramiko
+import pandas as pd
 import datetime as dt
 from scp import SCPClient
+# Add path to parent dir of this Python file: https://stackoverflow.com/questions/3430372/
+sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
+from deep_learning.model import get_weights
 
 
 def createSSHClient(server, port, user, password):
@@ -76,8 +82,57 @@ def send_to_all_clients(client_info_dict, path_to_file, ws_path_server):
         ip_address = client_info_dict[client_name]['ip_address']
         username = client_info_dict[client_name]['username']
         password = client_info_dict[client_name]['password']
-        workspace_path = client_info_dict[client_name]['workspace_path']
+        workspace_path = client_info_dict[client_name]['ws_path']
         send_file(ip_address, username, password, path_to_file, ws_path_server, workspace_path)
+
+
+def collect_client_info(client_info_dict, workspace_path_server, info_type, file_ext, fl_round=None, net_arch=None):
+    """
+    Collect workspace paths or dataset size from clients
+
+    :param client_info_dict: dict, k: client name, v: dict with all info for specific client
+    :param workspace_path_server: str, absolute path to server workspace
+    :param info_type: str, which info to expect. Currently, supports 'dataset_size' or 'workspace_path'
+    :param file_ext: str, file extension
+    :param fl_round: int, federated learning round
+    :param net_arch: torch model, network architecture. Will be updated with received state dict (.pt)
+    """
+
+    # Prep
+    print(f'==> Collecting all client {info_type}...')
+
+    # Add client info to client_info_dict
+    for client_name in client_info_dict.keys():
+        print(f'     ==> Waiting for {client_name}...')
+        # Define path to client info, extract file type and wait
+        if fl_round is not None:
+            client_info_path = os.path.join(workspace_path_server,
+                                            f'{client_name}_round_{fl_round}_{info_type}{file_ext}')
+        else:
+            client_info_path = os.path.join(workspace_path_server, f'{client_name}_{info_type}{file_ext}')
+        suffix = pathlib.Path(client_info_path).suffix
+        wait_for_file(client_info_path.replace(suffix, '_transfer_completed.txt'))
+
+        # Define action based on file type
+        if suffix == '.txt':
+            with open(client_info_path, 'r') as file:
+                info = file.read()
+                if info_type == 'dataset_size':
+                    info = int(info)
+        elif suffix == '.csv':
+            info = pd.read_csv(client_info_path)
+        elif suffix == '.pt':
+            info = get_weights(net_arch, client_info_path)
+        else:
+            raise ValueError(f'No processing of file extension {suffix}')
+
+        # Add to dictionary (add level if specific for FL round)
+        if fl_round is not None:
+            client_info_dict[client_name][f'round_{fl_round}'][info_type] = info
+        else:
+            client_info_dict[client_name][info_type] = info
+
+    return client_info_dict
 
 
 def clean_up_workspace(workspace_dir_path, server_or_client):
