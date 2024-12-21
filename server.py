@@ -143,7 +143,7 @@ if __name__ == "__main__":
             ))
             filename = f'train_results_{client_name}_round_{fl_round}.csv'
             train_results_client_df = pd.read_csv(os.path.join(workspace_path_server, filename))
-            val_loss_avg += train_results_client_df['val_loss'].mean() / len(client_credentials_dict)
+            val_loss_avg += train_results_client_df['val_loss'].mean() / len(client_sd_sample_dict)
         print(f'     ==> val loss ref: {val_loss_ref} || val loss avg: {val_loss_avg}')
         avg_val_loss_clients.append(val_loss_avg)
 
