@@ -51,35 +51,35 @@ if __name__ == "__main__":
         settings_dict = json.load(json_file)
     workspace_path_server = settings_dict.get('workspace_path_server')          # Path to server workspace
     initial_state_dict_path = settings_dict.get('initial_state_dict_path')      # Path to initial state dict
-    client_credentials_dict = settings_dict.get('client_credentials')           # Client credentials dict
-    client_names = client_credentials_dict.keys()
+    client_info_dict = settings_dict.get('client_credentials')                  # Initialise client info dict
+    client_names = client_info_dict.keys()
     FL_plan_path = os.path.join(workspace_path_server, 'FL_plan.json')
     architecture_path = os.path.join(workspace_path_server, 'architecture.py')
 
     # Wait for all clients to share their dataset size
     print('==> Collecting all client dataset sizes...')
-    client_dataset_size_dict = {}
+    n_sum_clients = 0
     for client_name in client_names:
         client_dataset_txt_path = os.path.join(workspace_path_server, f'{client_name}_dataset_size.txt')
         wait_for_file(client_dataset_txt_path.replace('.txt', '_transfer_completed.txt'))
         with open(client_dataset_txt_path, 'r') as file:
             n_client = int(file.read())
-            client_dataset_size_dict.update({client_name: n_client})
+            n_sum_clients += n_client
+            client_info_dict[client_name]['dataset_size'] = n_client
             print(f'     ==> {client_name}: n = {n_client}')
 
     # Wait for all clients to share their workspace_path
     print('==> Collecting all client workspace paths...')
-    client_workspace_path_dict = {}
     for client_name in client_names:
         client_ws_path_txt_path = os.path.join(workspace_path_server, f'{client_name}_ws_path.txt')
         wait_for_file(client_ws_path_txt_path.replace('.txt', '_transfer_completed.txt'))
         with open(client_ws_path_txt_path, 'r') as file:
             client_ws_path = file.read()
-            client_workspace_path_dict.update({client_name: client_ws_path})
+            client_info_dict[client_name]['workspace_path'] = client_ws_path
 
     # Send to all clients: FL plan and network architecture
-    send_to_all_clients(client_credentials_dict, FL_plan_path, workspace_path_server, client_workspace_path_dict)
-    send_to_all_clients(client_credentials_dict, architecture_path, workspace_path_server, client_workspace_path_dict)
+    send_to_all_clients(client_info_dict, FL_plan_path, workspace_path_server)
+    send_to_all_clients(client_info_dict, architecture_path, workspace_path_server)
 
     # Extract FL plan
     with open(FL_plan_path, 'r') as json_file:
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         round_start_time = dt.datetime.now()
 
         # Send global model to all clients
-        send_to_all_clients(client_credentials_dict, model_path, workspace_path_server, client_workspace_path_dict)
+        send_to_all_clients(client_info_dict, model_path, workspace_path_server)
         print('==> Model shared with all clients. Waiting for updated client models...')
         txt_file_paths = [os.path.join(workspace_path_server, f'model_{client_name}_round_{fl_round}_transfer_completed.txt')
                           for client_name in client_names]
@@ -128,9 +128,10 @@ if __name__ == "__main__":
         if n_clients_set is not None:
             client_sd_sample_dict = get_n_random_pairs_from_dict(client_sd_sample_dict, n_clients_set, fl_round)
             print(f'    ==> Clients in sample (random seed = {fl_round}): {list(client_sd_sample_dict.keys())}')
+
         new_global_state_dict = weighted_avg_local_models(client_sd_sample_dict,
-                                                          {k: client_dataset_size_dict.get(k)
-                                                           for k in client_sd_sample_dict.keys()})
+                                                          {cl: client_info_dict.get(cl).get('dataset_size')
+                                                           for cl in client_sd_sample_dict.keys()})
         model_path = os.path.join(workspace_path_server, f'global_model_round_{fl_round}.pt')  # Overwrite model_path
         torch.save(new_global_state_dict, model_path)
 
@@ -158,8 +159,7 @@ if __name__ == "__main__":
                 stop_txt_file_path = os.path.join(workspace_path_server, 'stop_training.txt')
                 with open(stop_txt_file_path, 'w') as txt_file:
                     txt_file.write('This file causes early FL stopping')
-                send_to_all_clients(client_credentials_dict, stop_txt_file_path, workspace_path_server,
-                                    client_workspace_path_dict)
+                send_to_all_clients(client_info_dict, stop_txt_file_path, workspace_path_server)
                 break
         print(f'     ==> lr stop counter: {counter_stop}')
 
@@ -180,18 +180,19 @@ if __name__ == "__main__":
     print(f'==> Sending final model ({os.path.basename(best_model_path)}) to all clients...')
     with open(os.path.join(workspace_path_server, 'final_model.txt'), 'w') as txt_file:
         txt_file.write(best_model_path)
-    send_to_all_clients(client_credentials_dict, final_model_path, workspace_path_server, client_workspace_path_dict)
+    send_to_all_clients(client_info_dict, final_model_path, workspace_path_server)
 
     # Calculate overall test MAE
     print('==> Calculate overall test MAE...')
     test_mae_overall = 0
-    for client_name, n_client in client_dataset_size_dict.items():
+    for client_name in client_names:
         print(f'    ==> Wait for test results {client_name}...')
+        n_client = client_info_dict[client_name]['dataset_size']
         test_results_txt_path = os.path.join(workspace_path_server, f'test_results_{client_name}_transfer_completed.txt')
         wait_for_file(test_results_txt_path)
         test_df_client = pd.read_csv(test_results_txt_path.replace('_transfer_completed.txt', '.csv'))
         test_mae_client = test_df_client['test_mae'].iloc[0]
-        test_mae_overall += test_mae_client * n_client / sum(client_dataset_size_dict.values())
+        test_mae_overall += test_mae_client * n_client / n_sum_clients
     with open(os.path.join(workspace_path_server, 'overall_test_mae.txt'), 'w') as txt_file:
         txt_file.write(f'Overall test MAE: {test_mae_overall}')
 
