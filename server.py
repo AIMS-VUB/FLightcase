@@ -20,7 +20,7 @@ import pandas as pd
 import datetime as dt
 from utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
                                        get_model_param_info, import_net_architecture)
-from utils.communication import wait_for_file, send_file, clean_up_workspace
+from utils.communication import wait_for_file, clean_up_workspace, send_to_all_clients
 
 # Filter deprecation warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -52,6 +52,7 @@ if __name__ == "__main__":
     workspace_path_server = settings_dict.get('workspace_path_server')          # Path to server workspace
     initial_state_dict_path = settings_dict.get('initial_state_dict_path')      # Path to initial state dict
     client_credentials_dict = settings_dict.get('client_credentials')           # Client credentials dict
+    client_names = client_credentials_dict.keys()
     FL_plan_path = os.path.join(workspace_path_server, 'FL_plan.json')
     architecture_path = os.path.join(workspace_path_server, 'architecture.py')
 
@@ -76,21 +77,9 @@ if __name__ == "__main__":
             client_ws_path = file.read()
             client_workspace_path_dict.update({client_name: client_ws_path})
 
-    # Send FL plan to all clients
-    print(f'==> Sending FL plan to all clients...')
-    for client_name, credentials in client_credentials_dict.items():
-        print(f'    ==> Sending to {client_name} ...')
-        client_ip_address = credentials.get('ip_address')
-        send_file(client_ip_address, credentials.get('username'), credentials.get('password'),
-                  FL_plan_path, workspace_path_server, client_workspace_path_dict.get(client_name))
-
-    # Send network architecture to all clients
-    print(f'==> Sending architecture to all clients...')
-    for client_name, credentials in client_credentials_dict.items():
-        print(f'    ==> Sending to {client_name} ...')
-        client_ip_address = credentials.get('ip_address')
-        send_file(client_ip_address, credentials.get('username'), credentials.get('password'),
-                  architecture_path, workspace_path_server, client_workspace_path_dict.get(client_name))
+    # Send to all clients: FL plan and network architecture
+    send_to_all_clients(client_credentials_dict, FL_plan_path, workspace_path_server, client_workspace_path_dict)
+    send_to_all_clients(client_credentials_dict, architecture_path, workspace_path_server, client_workspace_path_dict)
 
     # Extract FL plan
     with open(FL_plan_path, 'r') as json_file:
@@ -124,11 +113,7 @@ if __name__ == "__main__":
         round_start_time = dt.datetime.now()
 
         # Send global model to all clients
-        for client_name, credentials in client_credentials_dict.items():
-            print(f'==> Sending global model to {client_name}...')
-            client_ip_address = credentials.get('ip_address')
-            send_file(client_ip_address, credentials.get('username'), credentials.get('password'), model_path,
-                      workspace_path_server, client_workspace_path_dict.get(client_name))
+        send_to_all_clients(client_credentials_dict, model_path, workspace_path_server, client_workspace_path_dict)
         print('==> Model shared with all clients. Waiting for updated client models...')
         txt_file_paths = [os.path.join(workspace_path_server, f'model_{client_name}_round_{fl_round}_transfer_completed.txt')
                           for client_name in client_credentials_dict.keys()]
@@ -173,11 +158,8 @@ if __name__ == "__main__":
                 stop_txt_file_path = os.path.join(workspace_path_server, 'stop_training.txt')
                 with open(stop_txt_file_path, 'w') as txt_file:
                     txt_file.write('This file causes early FL stopping')
-                for client_name, credentials in client_credentials_dict.items():
-                    print(f'==> Sending stop txt file to {client_name}...')
-                    client_ip_address = credentials.get('ip_address')
-                    send_file(client_ip_address, credentials.get('username'), credentials.get('password'),
-                              stop_txt_file_path, workspace_path_server, client_workspace_path_dict.get(client_name))
+                send_to_all_clients(client_credentials_dict, stop_txt_file_path, workspace_path_server,
+                                    client_workspace_path_dict)
                 break
         print(f'     ==> lr stop counter: {counter_stop}')
 
@@ -198,11 +180,7 @@ if __name__ == "__main__":
     print(f'==> Sending final model ({os.path.basename(best_model_path)}) to all clients...')
     with open(os.path.join(workspace_path_server, 'final_model.txt'), 'w') as txt_file:
         txt_file.write(best_model_path)
-    for client_name, credentials in client_credentials_dict.items():
-        print(f'     ==> Sending to {client_name}')
-        client_ip_address = credentials.get('ip_address')
-        send_file(client_ip_address, credentials.get('username'), credentials.get('password'), final_model_path,
-                  workspace_path_server, client_workspace_path_dict.get(client_name))
+    send_to_all_clients(client_credentials_dict, final_model_path, workspace_path_server, client_workspace_path_dict)
 
     # Calculate overall test MAE
     print('==> Calculate overall test MAE...')

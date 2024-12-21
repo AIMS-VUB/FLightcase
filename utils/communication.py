@@ -68,6 +68,16 @@ def wait_for_file(file_path, stop_with_stop_file = False):
     return stop_file_present
 
 
+def send_to_all_clients(client_credentials_dict, path_to_file, ws_path_server, client_ws_path_dict):
+    file = os.path.basename(path_to_file)
+    print(f'==> Sending {file} to all clients...')
+    for client_name, credentials in client_credentials_dict.items():
+        print(f'    ==> Sending to {client_name} ...')
+        client_ip_address = credentials.get('ip_address')
+        send_file(client_ip_address, credentials.get('username'), credentials.get('password'),
+                  path_to_file, ws_path_server, client_ws_path_dict.get(client_name))
+
+
 def clean_up_workspace(workspace_dir_path, server_or_client):
     # Remove _transfer_completed.txt files
     remove_transfer_completion_files(workspace_dir_path)
