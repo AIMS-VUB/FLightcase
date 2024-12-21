@@ -59,7 +59,7 @@ if __name__ == "__main__":
     # Wait for all clients to share their dataset size
     print('==> Collecting all client dataset sizes...')
     client_dataset_size_dict = {}
-    for client_name in client_credentials_dict.keys():
+    for client_name in client_names:
         client_dataset_txt_path = os.path.join(workspace_path_server, f'{client_name}_dataset_size.txt')
         wait_for_file(client_dataset_txt_path.replace('.txt', '_transfer_completed.txt'))
         with open(client_dataset_txt_path, 'r') as file:
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     # Wait for all clients to share their workspace_path
     print('==> Collecting all client workspace paths...')
     client_workspace_path_dict = {}
-    for client_name in client_credentials_dict.keys():
+    for client_name in client_names:
         client_ws_path_txt_path = os.path.join(workspace_path_server, f'{client_name}_ws_path.txt')
         wait_for_file(client_ws_path_txt_path.replace('.txt', '_transfer_completed.txt'))
         with open(client_ws_path_txt_path, 'r') as file:
@@ -116,14 +116,14 @@ if __name__ == "__main__":
         send_to_all_clients(client_credentials_dict, model_path, workspace_path_server, client_workspace_path_dict)
         print('==> Model shared with all clients. Waiting for updated client models...')
         txt_file_paths = [os.path.join(workspace_path_server, f'model_{client_name}_round_{fl_round}_transfer_completed.txt')
-                          for client_name in client_credentials_dict.keys()]
+                          for client_name in client_names]
         for txt_file_path in txt_file_paths:
             wait_for_file(txt_file_path)
 
         # Create new global model by combining local models
         print('==> Combining local model weights and saving...')
         local_model_paths_dict = {client_name: os.path.join(workspace_path_server, f'model_{client_name}_round_{fl_round}.pt')
-                                  for client_name in client_credentials_dict.keys()}
+                                  for client_name in client_names}
         client_sd_sample_dict = {k: torch.load(v, map_location='cpu') for k, v in local_model_paths_dict.items()}
         if n_clients_set is not None:
             client_sd_sample_dict = get_n_random_pairs_from_dict(client_sd_sample_dict, n_clients_set, fl_round)
