@@ -16,32 +16,17 @@ import torch
 import argparse
 import paramiko
 import pandas as pd
-import torch.nn as nn
 from utils.deep_learning.data import get_data_loader, split_data
 from utils.deep_learning.model import get_weights, get_weighted_average_model, import_net_architecture, copy_net
 from utils.deep_learning.evaluation import evaluate
 from utils.communication import wait_for_file, send_file, clean_up_workspace
 from utils.results import create_test_result_df, create_test_scatterplot, send_test_df_to_server
-from train import train
+from train import train, get_criterion, get_optimizer
 
 # Suppress printing of paramiko info
 # Source: https://stackoverflow.com/questions/340341/suppressing-output-of-paramiko-sshclient-class
 logger = paramiko.util.logging.getLogger()
 logger.setLevel(paramiko.util.logging.WARN)
-
-
-def get_criterion(criterion_txt):
-    if criterion_txt == 'l1loss':
-        return nn.L1Loss(reduction='sum')
-    else:
-        raise ValueError(f'Cannot find criterion for {criterion_txt}')
-
-
-def get_optimizer(optimizer_txt, net, lr):
-    if optimizer_txt == 'adam':
-        return torch.optim.Adam(net.parameters(), lr=lr)
-    else:
-        raise ValueError(f'Cannot find optimizer for {optimizer_txt}')
 
 
 if __name__ == "__main__":

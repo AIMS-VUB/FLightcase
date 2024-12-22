@@ -18,6 +18,20 @@ from utils.deep_learning.model import get_weights, copy_net
 from utils.deep_learning.evaluation import evaluate
 
 
+def get_criterion(criterion_txt):
+    if criterion_txt == 'l1loss':
+        return nn.L1Loss(reduction='sum')
+    else:
+        raise ValueError(f'Cannot find criterion for {criterion_txt}')
+
+
+def get_optimizer(optimizer_txt, net, lr):
+    if optimizer_txt == 'adam':
+        return torch.optim.Adam(net.parameters(), lr=lr)
+    else:
+        raise ValueError(f'Cannot find optimizer for {optimizer_txt}')
+
+
 def print_epoch_message(epoch, lr, train_loss, train_mae, val_loss, val_mae, best_loss, n_worse_epochs):
 
     epoch_message = f'Epoch: {epoch} || ' \
