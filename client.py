@@ -19,8 +19,9 @@ import pandas as pd
 from utils.deep_learning.data import get_data_loader, split_data
 from utils.deep_learning.model import get_weights, get_weighted_average_model, import_net_architecture, copy_net
 from utils.deep_learning.evaluation import evaluate
-from utils.communication import wait_for_file, send_file, clean_up_workspace, send_client_info_to_server
-from utils.results import create_test_result_df, create_test_scatterplot, send_test_df_to_server
+from utils.communication import (wait_for_file, send_file, clean_up_workspace, send_client_info_to_server,
+                                 send_test_df_to_server)
+from utils.results import create_test_true_pred_df, create_test_scatterplot, create_test_df_for_server
 from train import train, get_criterion, get_optimizer
 
 # Suppress printing of paramiko info
@@ -225,9 +226,10 @@ if __name__ == "__main__":
     test_loss, true_labels_test, pred_labels_test = evaluate(global_net, test_loader, criterion, device, 'test')
 
     # Test result analysis
-    true_pred_test_df = create_test_result_df(true_labels_test, pred_labels_test, workspace_path_client, save=True)
+    true_pred_test_df = create_test_true_pred_df(true_labels_test, pred_labels_test, workspace_path_client, save=True)
     create_test_scatterplot(true_pred_test_df, client_name, workspace_path_client)
-    send_test_df_to_server(true_pred_test_df, test_loss, client_name, workspace_path_client, server_username,
+    test_df_for_server = create_test_df_for_server(true_pred_test_df, test_loss)
+    send_test_df_to_server(test_df_for_server, client_name, workspace_path_client, server_username,
                            server_password, server_ip_address, workspace_path_server)
 
     # Clean up workspace

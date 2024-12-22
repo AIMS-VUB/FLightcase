@@ -147,6 +147,16 @@ def send_client_info_to_server(client_n, client_ws_path, client_name, server_ip_
                   server_ws_path)
 
 
+def send_test_df_to_server(test_df_for_server, client_name, workspace_path_client, server_username,
+                           server_password, server_ip_address, workspace_path_server):
+    # Send results to server
+    print('==> Sending test results to server...')
+    test_df_path = os.path.join(workspace_path_client, f'{client_name}_test_results.csv')
+    test_df_for_server.to_csv(test_df_path, index=False)
+    send_file(server_ip_address, server_username, server_password, test_df_path, workspace_path_client,
+              workspace_path_server)
+
+
 def clean_up_workspace(workspace_dir_path, server_or_client):
     # Remove _transfer_completed.txt files and __pycache__
     remove_transfer_completion_files(workspace_dir_path)
