@@ -136,11 +136,14 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
 
 
 def clean_up_workspace(workspace_dir_path, server_or_client):
-    # Remove _transfer_completed.txt files
+    # Remove _transfer_completed.txt files and __pycache__
     remove_transfer_completion_files(workspace_dir_path)
+    pycache_path = os.path.join(workspace_dir_path, '__pycache__')
+    if os.path.exists(pycache_path):
+        os.system(f'rm -r {pycache_path}')
 
     # Create subdirectories per category
-    subdirs = ['state_dicts', 'results', 'data']
+    subdirs = ['state_dicts', 'results', 'data', 'settings']
     if server_or_client == 'server':
         subdirs.remove('data')
     for subdir in subdirs:
@@ -152,19 +155,28 @@ def clean_up_workspace(workspace_dir_path, server_or_client):
     for root, dirs, files in os.walk(workspace_dir_path):
         for file in files:
             src_file_path = os.path.join(root, file)
-            if any(file.endswith(ext) for ext in ['.png', '.csv']):
+            # Result files
+            if (any(file.endswith(ext) for ext in ['.png', '.csv'])
+                    or file in ['overall_test_mae.txt', 'final_model.txt']):
                 dest_file_path = os.path.join(root, 'results', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
+            # Settings files
+            elif any(file.endswith(ext) for ext in ['.json', 'ws_path.txt', 'dataset_size.txt', '.py']):
+                dest_file_path = os.path.join(root, 'settings', file)
+                if file in ['architecture.py', 'FL_plan.json']:
+                    os.system(f'cp {src_file_path} {dest_file_path}')
+                else:
+                    os.system(f'mv {src_file_path} {dest_file_path}')
+            # Data files
             elif file.endswith('tsv'):
                 dest_file_path = os.path.join(root, 'data', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
+            # State dicts
             elif file.endswith('.pt'):
                 dest_file_path = os.path.join(root, 'state_dicts', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
-            elif any(file.endswith(ext) for ext in ['.json', '.txt', '.py', '.pyc']):
-                pass
             else:
-                raise ValueError(f'No handler specified for file extension (file = {file})')
+                raise ValueError(f'No handler specified for file = {file}')
         break
 
     # Move contents of workspace directory to data and time folder
@@ -179,7 +191,7 @@ def clean_up_workspace(workspace_dir_path, server_or_client):
         if is_experiment_folder(element):
             continue
         elif element in ['architecture.py', 'FL_plan.json'] and server_or_client == 'server':
-            os.system(f'cp {src_file_path} {dest_file_path}')
+            continue
         else:
             os.system(f'mv {src_file_path} {dest_file_path}')
 
