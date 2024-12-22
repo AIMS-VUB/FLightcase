@@ -17,13 +17,11 @@ import argparse
 import paramiko
 import pandas as pd
 import torch.nn as nn
-import scipy.stats as stats
-import matplotlib.pyplot as plt
-from sklearn.metrics import mean_absolute_error
 from utils.deep_learning.data import get_data_loader, split_data
 from utils.deep_learning.model import get_weights, get_weighted_average_model, import_net_architecture, copy_net
 from utils.deep_learning.evaluation import evaluate
 from utils.communication import wait_for_file, send_file, clean_up_workspace
+from utils.results import create_test_result_df, create_test_scatterplot, send_test_df_to_server
 from train import train
 
 # Suppress printing of paramiko info
@@ -255,47 +253,12 @@ if __name__ == "__main__":
     print('==> Testing final model...')
     global_net = get_weights(net_architecture, final_model_path)
     test_loss, true_labels_test, pred_labels_test = evaluate(global_net, test_loader, criterion, device, 'test')
-    test_mae = mean_absolute_error(true_labels_test, pred_labels_test)
-    r_true_pred, p_true_pred = stats.pearsonr(true_labels_test, pred_labels_test)
 
-    # Save predictions and ground truth to workspace
-    true_pred_test_df = pd.DataFrame({'true': true_labels_test, 'pred': pred_labels_test})
-    true_pred_test_df.to_csv(os.path.join(workspace_path_client, f'true_pred_test_{client_name}.csv'))
-
-    # Create scatterplot
-    fig, ax = plt.subplots()
-    ax.scatter(x=true_labels_test, y=pred_labels_test)
-    ax.set_title(f'Test performance {client_name}:\nMAE: {test_mae:.2f}, r: {r_true_pred:.2f} (p: {p_true_pred:.3f})')
-    ax.set_xlabel('True')
-    ax.set_ylabel('Pred')
-    plt.savefig(os.path.join(workspace_path_client, f'scatterplot_true_pred_test_{client_name}.png'))
-
-    # Send results to server
-    print('==> Sending test results to server...')
-    stat_sw_true, p_sw_true = stats.shapiro(true_pred_test_df['true'])
-    stat_sw_pred, p_sw_pred = stats.shapiro(true_pred_test_df['pred'])
-    test_df = pd.DataFrame({
-        'test_loss': [test_loss],
-        'test_mae': [test_mae],
-        'r_true_pred': [r_true_pred],
-        'p_true_pred': [p_true_pred],
-        'true_mean': [true_pred_test_df['true'].describe()['mean']],
-        'true_sd': [true_pred_test_df['true'].describe()['std']],
-        'true_skewness': [stats.skew(true_pred_test_df['true'])],
-        'true_kurtosis': [stats.kurtosis(true_pred_test_df['true'])],
-        'true_shapiro-wilk_stat': [stat_sw_true],
-        'true_shapiro-wilk_p': [p_sw_true],
-        'pred_mean': [true_pred_test_df['pred'].describe()['mean']],
-        'pred_sd': [true_pred_test_df['pred'].describe()['std']],
-        'pred_skewness': [stats.skew(true_pred_test_df['pred'])],
-        'pred_kurtosis': [stats.kurtosis(true_pred_test_df['pred'])],
-        'pred_shapiro-wilk_stat': [stat_sw_pred],
-        'pred_shapiro-wilk_p': [p_sw_pred]
-    })
-    test_df_path = os.path.join(workspace_path_client, f'{client_name}_test_results.csv')
-    test_df.to_csv(test_df_path, index=False)
-    send_file(server_ip_address, server_username, server_password, test_df_path, workspace_path_client,
-              workspace_path_server)
+    # Test result analysis
+    true_pred_test_df = create_test_result_df(true_labels_test, pred_labels_test, workspace_path_client, save=True)
+    create_test_scatterplot(true_pred_test_df, client_name, workspace_path_client)
+    send_test_df_to_server(true_pred_test_df, test_loss, client_name, workspace_path_client, server_username,
+                           server_password, server_ip_address, workspace_path_server)
 
     # Clean up workspace
     print('Cleaning up workspace...')
