@@ -19,7 +19,7 @@ import pandas as pd
 from utils.deep_learning.data import get_data_loader, split_data
 from utils.deep_learning.model import get_weights, get_weighted_average_model, import_net_architecture, copy_net
 from utils.deep_learning.evaluation import evaluate
-from utils.communication import wait_for_file, send_file, clean_up_workspace
+from utils.communication import wait_for_file, send_file, clean_up_workspace, send_client_info_to_server
 from utils.results import create_test_result_df, create_test_scatterplot, send_test_df_to_server
 from train import train, get_criterion, get_optimizer
 
@@ -79,24 +79,9 @@ if __name__ == "__main__":
     # Save filtered clinical dataframe to workspace path as reference
     df.to_csv(os.path.join(workspace_path_client, 'participants.tsv'), sep='\t')
 
-    # Send dataset size to server
-    print('==> Send dataset size to server...')
-    dataset_size = df.shape[0]
-    dataset_size_txt_path = os.path.join(workspace_path_client, f'{client_name}_dataset_size.txt')
-    with open(dataset_size_txt_path, 'w') as file:
-        file.write(str(dataset_size))
-
-    send_file(server_ip_address, server_username, server_password, dataset_size_txt_path, workspace_path_client,
-              workspace_path_server)
-
-    # Send client workspace path to server
-    print('==> Send workspace path to server...')
-    ws_path_txt_path = os.path.join(workspace_path_client, f'{client_name}_ws_path.txt')
-    with open(ws_path_txt_path, 'w') as file:
-        file.write(workspace_path_client)
-
-    send_file(server_ip_address, server_username, server_password, ws_path_txt_path, workspace_path_client,
-              workspace_path_server)
+    # Send dataset size and client workspace path to server
+    send_client_info_to_server(df.shape[0], workspace_path_client, client_name, server_ip_address, server_username,
+                               server_password, workspace_path_server)
 
     # Wait for FL plan
     print('==> Waiting for FL plan...')

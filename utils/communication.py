@@ -135,6 +135,18 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
     return client_info_dict
 
 
+def send_client_info_to_server(client_n, client_ws_path, client_name, server_ip_address, server_username,
+                               server_password, server_ws_path):
+    for tag, info in zip(['dataset_size', 'ws_path'], [client_n, client_ws_path]):
+        print(f'==> Send {tag} to server...')
+        info_txt_path = os.path.join(client_ws_path, f'{client_name}_{tag}.txt')
+        with open(info_txt_path, 'w') as file:
+            file.write(str(info))
+
+        send_file(server_ip_address, server_username, server_password, info_txt_path, client_ws_path,
+                  server_ws_path)
+
+
 def clean_up_workspace(workspace_dir_path, server_or_client):
     # Remove _transfer_completed.txt files and __pycache__
     remove_transfer_completion_files(workspace_dir_path)
