@@ -108,6 +108,7 @@ if __name__ == "__main__":
     patience_lr_reduction = int(FL_plan_dict.get('pat_lr_red'))     # N fl rounds stagnating val loss before reducing lr
     criterion_txt = FL_plan_dict.get('criterion')                   # Criterion in txt format, lowercase (e.g. l1loss)
     optimizer_txt = FL_plan_dict.get('optimizer')                   # Optimizer in txt format, lowercase (e.g. adam)
+    n_epochs_per_round = FL_plan_dict.get('n_epochs_per_round')     # Number of epochs per FL round
 
     # General deep learning settings
     criterion = get_criterion(criterion_txt)
@@ -166,24 +167,25 @@ if __name__ == "__main__":
 
             # Train
             print('==> Start training...')
-            best_model, train_loss_list, val_loss_list = train(1, device, train_loader, val_loader, optimizer,
-                                                               global_net, criterion, None, False,
-                                                               None)
+            best_model, best_val_loss, train_loss_list, val_loss_list = train(
+                n_epochs_per_round, device, train_loader, val_loader, optimizer, global_net, criterion, None,
+                False, None
+            )
 
-            train_results_df_i = pd.DataFrame({'random_state': [random_state],
-                                               'fl_round': [fl_round],
+            train_results_df_i = pd.DataFrame({'random_state': [random_state]*len(train_loss_list),
+                                               'fl_round': [fl_round]*len(train_loss_list),
                                                'train_loss': train_loss_list,
                                                'val_loss': val_loss_list,
-                                               'n_train': n_train,
-                                               'n_val': n_val,
-                                               'n_test': n_test})
+                                               'n_train': [n_train]*len(train_loss_list),
+                                               'n_val': [n_val]*len(train_loss_list),
+                                               'n_test': [n_test]*len(train_loss_list)})
             train_results_df = pd.concat([train_results_df, train_results_df_i], axis=0)
 
-            # Update mean val loss (index 0 since only 1 epoch)
-            mean_val_loss += val_loss_list[0]/n_splits
+            # Update mean val loss
+            mean_val_loss += best_val_loss/n_splits
 
-            # Update dict (index 0 since only 1 epoch)
-            model_error_dict.update({best_model: val_loss_list[0]})
+            # Update dict
+            model_error_dict.update({best_model: best_val_loss})
 
         print('==> Send training results to server...')
         train_results_df_path = os.path.join(workspace_path_client, f'{client_name}_round_{fl_round}_train_results.csv')

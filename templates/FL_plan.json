@@ -1,5 +1,6 @@
 {
     "n_rounds": "100",
+    "n_epochs_per_round": 1,
     "lr": "0.001",
     "pat_lr_red": "3",
     "pat_stop":"10",

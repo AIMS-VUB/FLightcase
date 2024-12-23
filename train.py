@@ -150,7 +150,7 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
     if save_best_sd:
         torch.save(best_model.state_dict(), best_model_path)
 
-    return best_model, train_loss_list, val_loss_list
+    return best_model, best_loss, train_loss_list, val_loss_list
 
 
 if __name__ == "__main__":
