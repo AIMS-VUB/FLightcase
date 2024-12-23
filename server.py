@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 from utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
-                                       get_model_param_info, import_net_architecture)
+                                       get_model_param_info, import_net_architecture, copy_net)
 from utils.communication import clean_up_workspace, send_to_all_clients, collect_client_info
 from utils.tracking import print_FL_plan
 from utils.results import update_avg_val_loss, calculate_overall_test_mae
@@ -77,7 +77,10 @@ if __name__ == "__main__":
 
     # Load initial network and save
     net_architecture = import_net_architecture(architecture_path)
-    global_net = get_weights(net_architecture, initial_state_dict_path)
+    if initial_state_dict_path is not None:
+        global_net = get_weights(net_architecture, initial_state_dict_path)
+    else:
+        global_net = copy_net(net_architecture)
     model_path = os.path.join(workspace_path_server, 'initial_model.pt')
     torch.save(global_net.state_dict(), model_path)
 
