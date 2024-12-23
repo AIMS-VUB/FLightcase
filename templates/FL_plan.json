@@ -4,7 +4,6 @@
     "pat_lr_red": "3",
     "pat_stop":"10",
     "lr_reduce_factor": "0.5",
-    "batch_size": "8",
     "train_fraction": "0.6",
     "val_fraction": "0.2",
     "test_fraction": "0.2",

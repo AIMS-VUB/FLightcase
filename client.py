@@ -55,6 +55,7 @@ if __name__ == "__main__":
     colname_label = settings_dict.get('colname_label')                  # Column name of the label column
     subject_ids = settings_dict.get('subject_ids')                      # Which subject ids to take into account?
     bids_root_path = settings_dict.get('bids_root_path')                # Path to BIDS root
+    batch_size = int(settings_dict.get('batch_size'))                   # Batch size
 
     # Load dataframe and preprocess
     df_path = os.path.join(bids_root_path, 'participants.tsv')
@@ -98,7 +99,6 @@ if __name__ == "__main__":
     with open(FL_plan_path, 'r') as json_file:
         FL_plan_dict = json.load(json_file)
     n_rounds = int(FL_plan_dict.get('n_rounds'))                    # Number of FL rounds
-    batch_size = int(FL_plan_dict.get('batch_size'))                # Batch size for the data loaders
     train_fraction = float(FL_plan_dict.get('train_fraction'))      # Fraction of data for training
     val_fraction = float(FL_plan_dict.get('val_fraction'))          # Fraction of data for validation
     test_fraction = float(FL_plan_dict.get('test_fraction'))        # Fraction of data for testing
