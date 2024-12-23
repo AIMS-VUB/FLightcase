@@ -179,10 +179,10 @@ if __name__ == "__main__":
                                                'n_test': n_test})
             train_results_df = pd.concat([train_results_df, train_results_df_i], axis=0)
 
-            # Update mean val loss
+            # Update mean val loss (index 0 since only 1 epoch)
             mean_val_loss += val_loss_list[0]/n_splits
 
-            # Update dict
+            # Update dict (index 0 since only 1 epoch)
             model_error_dict.update({best_model: val_loss_list[0]})
 
         print('==> Send training results to server...')
