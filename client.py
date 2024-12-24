@@ -22,7 +22,7 @@ from utils.deep_learning.evaluation import evaluate
 from utils.communication import (wait_for_file, send_file, clean_up_workspace, send_client_info_to_server,
                                  send_test_df_to_server)
 from utils.results import create_test_true_pred_df, create_test_scatterplot, create_test_df_for_server
-from train import train, get_criterion, get_optimizer
+from utils.deep_learning.train import train, get_criterion, get_optimizer
 
 # Suppress printing of paramiko info
 # Source: https://stackoverflow.com/questions/340341/suppressing-output-of-paramiko-sshclient-class
