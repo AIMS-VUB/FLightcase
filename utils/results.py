@@ -27,6 +27,7 @@ def calculate_overall_test_mae(client_info_dict, workspace_path_server, save=Tru
     if save:
         with open(os.path.join(workspace_path_server, 'overall_test_mae.txt'), 'w') as txt_file:
             txt_file.write(f'Overall test MAE: {test_mae_overall}')
+    return test_mae_overall
 
 
 def create_test_scatterplot(true_pred_test_df, client_name, workspace_path_client):
