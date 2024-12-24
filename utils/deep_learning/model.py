@@ -17,6 +17,11 @@ warnings.filterwarnings("ignore", category=FutureWarning)  # TODO: torch.load wi
 
 
 def import_net_architecture(architecture_file_path):
+    """
+    This function imports the network architecture from the architecture.py file at the given path
+    :param architecture_file_path: path to the architecture.py file
+    :return: torch network (architecture)
+    """
     sys.path.append(os.path.dirname(architecture_file_path))
     from architecture import net_architecture
     return net_architecture
@@ -26,6 +31,8 @@ def copy_net(net):
     """ Copy torch network
 
     Source: https://androidkt.com/copy-pytorch-model-using-deepcopy-and-state_dict/
+    :param net: torch network
+    :return: copied network
     """
     net_copy = copy.deepcopy(net)
     return net_copy
@@ -50,8 +57,9 @@ def get_weights(net, state_dict_path):
 
 def loss_to_contribution(loss_list):
     """
-    Convert loss list into normalised weights.
-    Higher loss = lower contribution.
+    Convert loss list into normalised weights. Higher loss = lower contribution.
+    :param loss_list: list, each element is a loss value
+    :return: list with normalised weight contribution
     """
     contribution_weights = [1 / val for val in loss_list]
     contribution_weights_normalised = [val / (sum(contribution_weights)) for val in contribution_weights]
@@ -62,6 +70,9 @@ def get_weighted_average_model(model_error_dict):
     """
     Get weighted average of multiple models.
     The contribution of a model is based on its loss (higher loss = lower contribution)
+
+    :param model_error_dict: dict, key: model, value: loss (error)
+    :param: torch model with weighted average weights
     """
     # Convert loss to normalised contribution (so that sum of the contributions is 1)
     model_contribution_dict = dict(zip(model_error_dict.keys(), loss_to_contribution(model_error_dict.values())))
@@ -132,6 +143,11 @@ def get_n_random_pairs_from_dict(input_dict, n, random_seed=None):
 def get_model_param_info(net, print_info=False, save_info_path=None):
     """
     Get model information related to (trainable) parameters
+
+    :param net: torch network
+    :param print_info: bool, print the intormation?
+    :param save_info_path: str, JSON path to save info dict to
+    :return: dict, model information
     """
     # Get model info
     total_parameters_dict = {name: p.numel() for name, p in net.named_parameters()}

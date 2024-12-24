@@ -10,6 +10,13 @@ from sklearn.metrics import mean_absolute_error
 
 
 def update_avg_val_loss(client_info_dict, val_loss_avg, fl_round):
+    """ Update the average validation loss
+
+    :param client_info_dict: dict, key: client name, value: client info
+    :param val_loss_avg: float, average validation loss
+    :param fl_round: int, the federated learning round
+    :return: float, updated validation loss
+    """
     for client_name in client_info_dict.keys():
         train_results_client_df = client_info_dict[client_name][f'round_{fl_round}']['train_results']
         val_loss_avg += train_results_client_df['val_loss'].mean() / len(client_info_dict)
@@ -17,6 +24,13 @@ def update_avg_val_loss(client_info_dict, val_loss_avg, fl_round):
 
 
 def calculate_overall_test_mae(client_info_dict, workspace_path_server, save=True):
+    """ Calculate overall test MAE
+
+    :param client_info_dict: dict, key: client name, value: client info
+    :param workspace_path_server: str, path to server workspace
+    :param save: bool, save the overall MAE to a txt file?
+    :return: float
+    """
     test_mae_overall = 0
     n_sum_clients = sum([dct['dataset_size'] for dct in client_info_dict.values()])
     for client_name in client_info_dict.keys():
@@ -31,6 +45,12 @@ def calculate_overall_test_mae(client_info_dict, workspace_path_server, save=Tru
 
 
 def create_test_scatterplot(true_pred_test_df, client_name, workspace_path_client):
+    """ Create scatterplot of test data
+
+    :param true_pred_test_df: pd DataFrame, true and predicted test results
+    :param client_name: str, client name
+    :param workspace_path_client: str, path to client workspace
+    """
     # Create scatterplot (for client only)
     test_mae = mean_absolute_error(true_pred_test_df['true'], true_pred_test_df['pred'])
     r_true_pred, p_true_pred = stats.pearsonr(true_pred_test_df['true'], true_pred_test_df['pred'])
@@ -45,6 +65,13 @@ def create_test_scatterplot(true_pred_test_df, client_name, workspace_path_clien
 
 
 def create_test_true_pred_df(true_labels_test, pred_labels_test, workspace_path_client, save=True):
+    """ Create dataframe containing true and predicted test results
+
+    :param true_labels_test: list, true labels
+    :param pred_labels_test: list, predicted labels
+    :param workspace_path_client: str, path to client workspace
+    :param save: bool, save dataframe?
+    """
     # Save predictions and ground truth to workspace
     true_pred_test_df = pd.DataFrame({'true': true_labels_test, 'pred': pred_labels_test})
     if save:
@@ -54,6 +81,12 @@ def create_test_true_pred_df(true_labels_test, pred_labels_test, workspace_path_
 
 
 def create_test_df_for_server(true_pred_test_df, test_loss):
+    """ Creates test dataframe with aggregate results for server
+
+    :param true_pred_test_df: pd DataFrame, true and predicted test results
+    :param test_loss: float, test loss
+    :return: pd DataFrame
+    """
     test_mae = mean_absolute_error(true_pred_test_df['true'], true_pred_test_df['pred'])
     r_true_pred, p_true_pred = stats.pearsonr(true_pred_test_df['true'], true_pred_test_df['pred'])
     stat_sw_true, p_sw_true = stats.shapiro(true_pred_test_df['true'])

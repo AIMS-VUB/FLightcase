@@ -17,7 +17,15 @@ from deep_learning.model import get_weights
 
 def createSSHClient(server, port, user, password):
     """
+    Create an SSH client to connect to server.
+    Note: terminology might be confusing as also used to connect from FL server to FL client
     Function source: https://stackoverflow.com/questions/250283/how-to-scp-in-python
+
+    :param server: str, remote ip address (denoted as server)
+    :param port: int, port
+    :param user: str, remote username
+    :param password: str, password corresponding to remote username
+    :return: ssh client
     """
     client = paramiko.SSHClient()
     client.load_system_host_keys()
@@ -59,6 +67,7 @@ def wait_for_file(file_path, stop_with_stop_file = False):
 
     :param file_path: str, path to file
     :param stop_with_stop_file: bool, stop when "stop_training.txt" is present in the same directory?
+    :return: bool, is a stop file present? Indicates stopping FL.
     """
 
     stop_file_present = False
@@ -75,6 +84,11 @@ def wait_for_file(file_path, stop_with_stop_file = False):
 
 
 def send_to_all_clients(client_info_dict, path_to_file, ws_path_server):
+    """
+    This function sends a file to all clients
+
+    :param client_info_dict: dict, k: client name, v: client information dict
+    """
     file = os.path.basename(path_to_file)
     print(f'==> Sending {file} to all clients...')
     for client_name in client_info_dict.keys():
@@ -96,6 +110,7 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
     :param file_ext: str, file extension
     :param fl_round: int, federated learning round
     :param net_arch: torch model, network architecture. Will be updated with received state dict (.pt)
+    :return: dict, enriched client information dict
     """
 
     # Prep
@@ -137,6 +152,17 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
 
 def send_client_info_to_server(client_n, client_ws_path, client_name, server_ip_address, server_username,
                                server_password, server_ws_path):
+    """
+    Send client information  to server
+
+    :client_n: str, client dataset size
+    :client_ws_path: str, path to client workspace
+    :client_name: str, client name
+    :server_ip_address: str, server ip address
+    :server_username: str, server username
+    :server_password: str, server password
+    :server_ws_path: str, server workspace path
+    """
     for tag, info in zip(['dataset_size', 'ws_path'], [client_n, client_ws_path]):
         print(f'==> Send {tag} to server...')
         info_txt_path = os.path.join(client_ws_path, f'{client_name}_{tag}.txt')
@@ -149,6 +175,16 @@ def send_client_info_to_server(client_n, client_ws_path, client_name, server_ip_
 
 def send_test_df_to_server(test_df_for_server, client_name, workspace_path_client, server_username,
                            server_password, server_ip_address, workspace_path_server):
+    """
+    Send test dataframe to server
+
+    :client_name: str, client name
+    :workspace_path_client: str, path to client workspace
+    :server_username: str, server username
+    :server_password: str, server password
+    :server_ip_address: str, server ip address
+    :workspace_path_server: str, server workspace path
+    """
     # Send results to server
     print('==> Sending test results to server...')
     test_df_path = os.path.join(workspace_path_client, f'{client_name}_test_results.csv')
@@ -158,6 +194,12 @@ def send_test_df_to_server(test_df_for_server, client_name, workspace_path_clien
 
 
 def clean_up_workspace(workspace_dir_path, server_or_client):
+    """
+    Clean up workspace by removing, moving and copying files and dirs
+
+    :param workspace_dir_path: str, path to workspace directory
+    :param server_or_client: str, "server" or "client". Defines whether client or server workspace.
+    """
     # Remove _transfer_completed.txt files and __pycache__
     remove_transfer_completion_files(workspace_dir_path)
     pycache_path = os.path.join(workspace_dir_path, '__pycache__')
@@ -219,10 +261,22 @@ def clean_up_workspace(workspace_dir_path, server_or_client):
 
 
 def is_experiment_folder(dir_name):
+    """
+    Check whether the directory has an experiment folder format
+
+    :param dir_name: str, directory name
+    :return: bool
+    """
     return re.fullmatch('\A[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}h[0-9]{2}m[0-9]{2}s\Z', dir_name)
 
 
 def remove_transfer_completion_files(workspace_dir_path, print_tracking=False):
+    """
+    Remove files with '_transfer_completed.txt' suffix
+
+    :param workspace_dir_path: str, path to workspace directory
+    :param print_tracking: bool, track which files are removed?
+    """
     for root, dirs, files in os.walk(workspace_dir_path):
         for file in files:
             if file.endswith('_transfer_completed.txt'):

@@ -52,6 +52,7 @@ def prep_neuro_data(neuro_data_path, path_colname):
     This function prepares neuro data
     :param neuro_data_path: str, path to neuro data
     :param path_colname: str, column name of column containing paths for the neuro data of interest
+    :return: neuro data prepared as input for network
     """
     niftis_3d_suffices = ['T1w', 'FLAIR', 'T2w', 'PDw', 'T2starw', 'angio', 'inplaneT1', 'inplaneT2']
     if any(path_colname.endswith(suffix) for suffix in niftis_3d_suffices):
@@ -61,12 +62,14 @@ def prep_neuro_data(neuro_data_path, path_colname):
 
 
 def prepare_participants_df(bids_root_path, colnames_dict, subject_sessions, modalities_dict, derivative_name):
-    """
+    """ Prepare participants dataframe for machine learning
+
     :param bids_root_path: str, path to BIDS root directory
     :param colnames_dict: dict, necessary keys: "id", "img_path" and "label"
     :param subject_sessions: dict, key: subject_id (str), val: sessions (list) to take into account
     :param modalities_dict: dict, k: modality (str, e.g. "anat"), val: filename tags (list, e.g. ['T1w.nii.gz'])
     :param derivative_name: str, name of the subfolder in the derivatives folder if applicable
+    :return: pd DataFrame
     """
 
     # Load participants dataframe and preprocess
@@ -94,6 +97,7 @@ def extract_subject_sessions(df, colnames_dict, subject_sessions):
     :param df: pd dataframe
     :param colnames_dict: dict, key: column name type (str, e.g. "id"), val: column name (str, e.g. "subject_id_BIDS")
     :param subject_sessions: dict, key: subject_id (str), val: sessions (list)
+    :return: pd DataFrame
     """
     sub_df = pd.DataFrame()
     if subject_sessions is not None:
@@ -114,6 +118,7 @@ def add_neuro_data_paths(df, modalities_dict, bids_root_path, colnames_dict, der
     :param bids_root_path: str, path to BIDS root directory
     :param colnames_dict: dict, key: column name type (str, e.g. "id"), val: column name (str, e.g. "subject_id_BIDS")
     :param derivative_name: str, name of the subfolder in the derivatives folder if applicable
+    :return: [1] pd DataFrame enriched with neuro data paths, [2] newly added column names
     """
     new_cols = []
     for data_type, filename_tags in modalities_dict.items():
@@ -136,6 +141,7 @@ def create_path(bids_root_path, sub, ses, modality, suffix, derivative_name):
     :param modality: str, data modality (e.g. "anat")
     :param suffix: str, sub-modality suffix (e.g. "T1w.nii.gz")
     :param derivative_name: str, name of the subfolder in the derivatives folder if applicable
+    :return: str, path
     """
     filename = f'{sub}_{ses}_{suffix}'
     if derivative_name is not None:
@@ -151,6 +157,7 @@ def filter_on_data_availability(df, path_cols):
 
     :param df: pd DataFrame
     :param path_cols: list, column names of columns containing neuro data paths
+    :return: pd DataFrame
     """
     sub_df = pd.DataFrame()
     for i, row in df.iterrows():
