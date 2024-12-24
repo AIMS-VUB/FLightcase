@@ -84,17 +84,16 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
         # Set model to training mode and send to GPU
         net.train().to(device)
 
-        for img, label in tqdm(train_loader):
-            # Send to device
-            img = img.to(device)
+        for neuro_data_list, label in tqdm(train_loader):
+            # Send label to device. Send other data to device when passing to net
             label = label.to(device)
 
             # Clear gradient
             optimizer.zero_grad()
 
             # Predict label, calculate loss and calculate gradient
-            pred_label = net(img)
-            pred_label = torch.squeeze(pred_label, dim=1)  # Remove one dimension to match dimensionality of label
+            pred_label = net(*[i.to(device) for i in neuro_data_list])      # Unwrap list when passing to function
+            pred_label = torch.squeeze(pred_label, dim=1)                   # Remove one dim to match label dim
             loss = criterion(pred_label, label)
             loss.backward()
 
@@ -103,7 +102,7 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
             train_true_label_list.extend(label.tolist())
 
             # Sum variables to allow calculation of mean loss per epoch
-            samples_count += img.shape[0]               # First dimension is number of samples in batch
+            samples_count += neuro_data_list[0].shape[0]   # First dimension is number of samples in batch
             train_loss_sum += loss.detach().item()
 
             # Update weights

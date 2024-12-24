@@ -16,7 +16,7 @@ import torch
 import argparse
 import paramiko
 import pandas as pd
-from utils.deep_learning.data import get_data_loader, split_data
+from utils.deep_learning.data import get_data_loader, split_data, prepare_participants_df
 from utils.deep_learning.model import get_weights, get_weighted_average_model, import_net_architecture, copy_net
 from utils.deep_learning.evaluation import evaluate
 from utils.communication import (wait_for_file, send_file, clean_up_workspace, send_client_info_to_server,
@@ -50,35 +50,20 @@ if __name__ == "__main__":
     server_username = settings_dict.get('server_username')              # Server username
     server_password = settings_dict.get('server_password')              # Server password
     workspace_path_server = settings_dict.get('workspace_path_server')  # Path to server workspace
-    colname_id = settings_dict.get('colname_id')                        # Column name of the BIDS id column
-    colname_img_path = settings_dict.get('colname_img_path')            # Column name of the image paths
-    colname_label = settings_dict.get('colname_label')                  # Column name of the label column
-    subject_ids = settings_dict.get('subject_ids')                      # Which subject ids to take into account?
+    derivative_name = settings_dict.get('derivative_name')              # Name of derivative subfolder, else None
+    modalities_dict = settings_dict.get('modalities_to_include')        # Modalities (e.g. {'anat': ['T1w', 'FLAIR']})
+    colnames_dict = settings_dict.get('colnames_dict')                  # Colnames dict
+    subject_sessions = settings_dict.get('subject_sessions')            # Which subject ids to take into account?
     bids_root_path = settings_dict.get('bids_root_path')                # Path to BIDS root
     batch_size = int(settings_dict.get('batch_size'))                   # Batch size
-
-    # Load dataframe and preprocess
-    df_path = os.path.join(bids_root_path, 'participants.tsv')
-    df = pd.read_csv(df_path, sep='\t')
-
-    if colname_img_path is None:
-        colname_img_path = 'img_path'
-        # For now, only use the first session
-        ses = 'ses-01'
-        df[colname_img_path] = df[colname_id].apply(
-            lambda x: os.path.join(bids_root_path, 'derivatives', 'Wood_2022', str(x), 'anat', ses,
-                                   f'{x}_{ses}_T1w.nii.gz'))
-
-    colnames_dict = {'id': colname_id, 'img_path': colname_img_path, 'label': colname_label}
-
-    if subject_ids is not None:
-        df = df[df[colname_id].isin(subject_ids)].reset_index(drop=True)
 
     # Create workspace folder
     if not os.path.exists(workspace_path_client):
         os.makedirs(workspace_path_client)
 
-    # Save filtered clinical dataframe to workspace path as reference
+    # Preprocess participants dataframe + save to workspace path as reference
+    df, colnames_dict = prepare_participants_df(bids_root_path, colnames_dict, subject_sessions,
+                                                modalities_dict, derivative_name)
     df.to_csv(os.path.join(workspace_path_client, 'participants.tsv'), sep='\t')
 
     # Send dataset size and client workspace path to server

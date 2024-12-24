@@ -5,10 +5,19 @@
     "server_username": "[ADAPT] username_server_computer",
     "server_password": "[ADAPT] password_server_computer",
     "workspace_path_server": "[ADAPT] path_to_FL_workspace_repository",
-    "colname_id": "[ADAPT] column_name_of_subject_id",
-    "colname_img_path": "[ADAPT] column_name_of_path_to_image or null",
-    "colname_label": "[ADAPT] column_name_of_label",
-    "subject_ids": "[ADAPT] list_of_subject_ids_to_include or null",
+    "derivative_name": null,
+    "modalities_to_include": {
+        "anat": [
+            "T1w.nii.gz",
+            "FLAIR.nii.gz"
+        ]
+    },
+    "colnames_dict": {
+        "id": "[ADAPT] column_name_of_subject_id",
+        "session": "[ADAPT] session column name",
+        "label": "[ADAPT] column_name_of_label"
+    },
+    "subject_sessions": "[ADAPT] null or dict, k: subject, v: list of sessions",
     "bids_root_path": "[ADAPT] /path/to/BIDS/root/directory/",
     "batch_size": 8
  }
