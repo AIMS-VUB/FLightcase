@@ -5,16 +5,11 @@ Training script
 
 import os
 import torch
-import argparse
-import pandas as pd
 import datetime as dt
 import torch.nn as nn
 from tqdm import tqdm
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 from sklearn.metrics import mean_absolute_error
-from monai.networks.nets import DenseNet
-from utils.deep_learning.data import get_data_loader, split_data
-from utils.deep_learning.model import get_weights, copy_net
+from utils.deep_learning.model import copy_net
 from utils.deep_learning.evaluation import evaluate
 
 
