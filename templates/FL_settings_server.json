@@ -1,5 +1,5 @@
 {
-    "workspace_path": "[ADAPT] path_to_FL_workspace_repository",
+    "workspace_path_server": "[ADAPT] path_to_FL_workspace_repository",
     "initial_state_dict_path": "[ADAPT] path_to_initial_state_dict or null",
     "client_credentials": {
         "[ADAPT] name_client_1": {
