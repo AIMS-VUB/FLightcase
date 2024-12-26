@@ -165,7 +165,7 @@ def server(settings_path):
 
     # Clean up workspace
     print('Cleaning up workspace...')
-    clean_up_workspace(workspace_path_server, server_or_client='server')
+    clean_up_workspace(workspace_path_server, who='server')
 
     # Print total FL duration
     fl_stop_time = dt.datetime.now()

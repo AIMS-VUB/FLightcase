@@ -219,7 +219,7 @@ def client(settings_path):
 
     # Clean up workspace
     print('Cleaning up workspace...')
-    clean_up_workspace(workspace_path_client, server_or_client='client')
+    clean_up_workspace(workspace_path_client, who='client')
 
 
 if __name__ == "__main__":
