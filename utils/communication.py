@@ -193,12 +193,12 @@ def send_test_df_to_server(test_df_for_server, client_name, workspace_path_clien
               workspace_path_server)
 
 
-def clean_up_workspace(workspace_dir_path, server_or_client):
+def clean_up_workspace(workspace_dir_path, who):
     """
     Clean up workspace by removing, moving and copying files and dirs
 
     :param workspace_dir_path: str, path to workspace directory
-    :param server_or_client: str, "server" or "client". Defines whether client or server workspace.
+    :param who: str, "server" or "client". Defines whether client or server workspace.
     """
     # Remove _transfer_completed.txt files and __pycache__
     remove_transfer_completion_files(workspace_dir_path)
@@ -208,7 +208,7 @@ def clean_up_workspace(workspace_dir_path, server_or_client):
 
     # Create subdirectories per category
     subdirs = ['state_dicts', 'results', 'data', 'settings']
-    if server_or_client == 'server':
+    if who == 'server':
         subdirs.remove('data')
     for subdir in subdirs:
         subdir_path = os.path.join(workspace_dir_path, subdir)
@@ -227,7 +227,7 @@ def clean_up_workspace(workspace_dir_path, server_or_client):
             # Settings files
             elif any(file.endswith(ext) for ext in ['.json', 'ws_path.txt', 'dataset_size.txt', '.py']):
                 dest_file_path = os.path.join(root, 'settings', file)
-                if file in ['architecture.py', 'FL_plan.json']:
+                if file in ['architecture.py', 'FL_plan.json', f'FL_settings_{who}.json']:
                     os.system(f'cp {src_file_path} {dest_file_path}')
                 else:
                     os.system(f'mv {src_file_path} {dest_file_path}')
@@ -254,7 +254,7 @@ def clean_up_workspace(workspace_dir_path, server_or_client):
         dest_file_path = os.path.join(workspace_dir_path, date_time_folder_name, element)
         if is_experiment_folder(element):
             continue
-        elif element in ['architecture.py', 'FL_plan.json'] and server_or_client == 'server':
+        elif element in ['architecture.py', 'FL_plan.json'] and who == 'server':
             continue
         else:
             os.system(f'mv {src_file_path} {dest_file_path}')
