@@ -9,3 +9,4 @@ scp==0.15.0
 matplotlib==3.10.0
 scipy==1.14.1
 numpy==1.26.4  # 2.2.0 causes conflict with monai==1.4.0
+click==8.1.8

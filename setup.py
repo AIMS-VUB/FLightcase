@@ -22,5 +22,10 @@ setup(
     description='FLightcase toolbox for Federated Learning',
     url='https://github.com/AIMS-VUB/FLightcase/',
     license='GPLv3',
-    install_requires=requirements
+    install_requires=requirements,
+    entry_points={
+        'console_scripts': [
+            'FLightcase = cli:cli',
+        ]
+    }
 )
