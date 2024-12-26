@@ -30,15 +30,12 @@ logger = paramiko.util.logging.getLogger()
 logger.setLevel(paramiko.util.logging.WARN)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        prog='Client',
-        description='Client for federated learning'
-    )
-    parser.add_argument('--settings_path', type=str, help='Path to the settings JSON')
-    args = parser.parse_args()
-    settings_path = args.settings_path
+def client(settings_path):
+    """
+    Run the client
 
+    :param settings_path: str, path to client settings JSON
+    """
     print('\n\n==============================\nStarting federated learning :)\n==============================\n\n')
 
     # Extract settings
@@ -223,3 +220,13 @@ if __name__ == "__main__":
     # Clean up workspace
     print('Cleaning up workspace...')
     clean_up_workspace(workspace_path_client, server_or_client='client')
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        prog='Client',
+        description='Client for federated learning'
+    )
+    parser.add_argument('--settings_path', type=str, help='Path to the settings JSON')
+    args = parser.parse_args()
+    client(args.settings_path)

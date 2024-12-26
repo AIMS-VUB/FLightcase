@@ -34,14 +34,12 @@ logger = paramiko.util.logging.getLogger()
 logger.setLevel(paramiko.util.logging.WARN)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        prog='Server',
-        description='Server for federated learning'
-    )
-    parser.add_argument('--settings_path', type=str, help='Path to the settings JSON')
-    args = parser.parse_args()
-    settings_path = args.settings_path
+def server(settings_path):
+    """
+    Run the server
+
+    :param settings_path: str, path to server settings JSON
+    """
 
     print('\n\n==============================\nStarting federated learning :)\n==============================\n\n')
 
@@ -173,3 +171,15 @@ if __name__ == "__main__":
     fl_stop_time = dt.datetime.now()
     fl_duration = fl_stop_time - fl_start_time
     print(f'Total federated learning duration: {fl_duration/3600} hrs')
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        prog='Server',
+        description='Server for federated learning'
+    )
+    parser.add_argument('--settings_path', type=str, help='Path to the settings JSON')
+    args = parser.parse_args()
+
+    # Run server
+    server(args.settings_path)
