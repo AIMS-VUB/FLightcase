@@ -256,6 +256,8 @@ def clean_up_workspace(workspace_dir_path, who):
             continue
         elif element in ['architecture.py', 'FL_plan.json'] and who == 'server':
             continue
+        elif element == f'FL_settings_{who}.json':
+            continue
         else:
             os.system(f'mv {src_file_path} {dest_file_path}')
 
