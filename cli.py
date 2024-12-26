@@ -24,7 +24,6 @@ def cli():
 def run_server(settings_path):
     """Run the server"""
     server(settings_path)
-    click.echo(f'run server{settings_path}')
 
 
 @cli.command()
