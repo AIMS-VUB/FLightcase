@@ -1,0 +1,13 @@
+# Inspiration: https://github.com/OpenMRBenelux/openmr2021-dataviz-workshop/blob/main/binder/postBuild
+# Git set up
+git config --global --add user.name "dummy_username"
+git config --global --add user.email my@mail_address.com
+
+# Get data
+datalad clone https://github.com/OpenNeuroDatasets/ds003083.git binder/inputs/ds003083/
+datalad clone https://github.com/OpenNeuroDatasets/ds000229.git binder/inputs/ds000229/
+datalad clone https://github.com/OpenNeuroDatasets/ds005530.git binder/inputs/ds005530/
+
+datalad get binder/inputs/ds003083/*/anat/*T1w.nii.gz
+datalad get binder/inputs/ds000229/*/anat/*T1w.nii.gz
+datalad get binder/inputs/ds005530/*/anat/*T1w.nii.gz
