@@ -27,5 +27,6 @@ setup(
         'console_scripts': [
             'FLightcase = cli:cli',
         ]
-    }
+    },
+    packages=[]
 )
