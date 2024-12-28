@@ -2,6 +2,8 @@
 # Create conda environment FLightcase
 conda env create --file environment.yml
 
+conda activate FLightcase
+
 # Get data
 datalad clone https://github.com/OpenNeuroDatasets/ds003083.git inputs/ds003083/
 datalad clone https://github.com/OpenNeuroDatasets/ds000229.git inputs/ds000229/
