@@ -11,3 +11,7 @@ datalad clone https://github.com/OpenNeuroDatasets/ds005530.git binder/inputs/ds
 datalad get binder/inputs/ds003083/*/anat/*T1w.nii.gz
 datalad get binder/inputs/ds000229/*/anat/*T1w.nii.gz
 datalad get binder/inputs/ds005530/*/anat/*T1w.nii.gz
+
+# Activate conda environment and build
+conda activate FLightcase
+pip3 install .
