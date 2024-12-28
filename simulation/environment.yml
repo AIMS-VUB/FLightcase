@@ -1,5 +1,4 @@
 # Inspiration: https://github.com/OpenMRBenelux/openmr2021-dataviz-workshop/blob/main/binder/environment.yml
-# Command to create: conda env create --file binder/environment.yml
 
 name: FLightcase
 
