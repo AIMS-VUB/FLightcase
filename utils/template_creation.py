@@ -66,10 +66,10 @@ def fill_in_template(workspace_path, file_name):
         elif k == "subject_sessions":
             new_v = define_subject_sessions()
         elif type(v) in [str, float, int] or v is None:
-            new_v = input(f'> Specify {k} (hit "enter" for default {v}): ')
+            new_v = input(f'> Specify "{k}" (hit "enter" for default: "{v}"): ')
             if new_v == '':
                 new_v = v
-                print(f'Choosing default value {v}')
+                print(f'Choosing default value "{v}"')
             elif new_v == 'null':
                 new_v = None
             elif type(new_v) == float:
