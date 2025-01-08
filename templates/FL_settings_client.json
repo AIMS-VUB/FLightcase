@@ -1,10 +1,10 @@
 {
-    "workspace_path_client": "[ADAPT] path_to_FL_workspace_repository",
-    "client_name": "[ADAPT] name_of_client_computer",
-    "server_ip_address": "[ADAPT] ip_address_server_computer (local simulation: 127.0.0.1)",
-    "server_username": "[ADAPT] username_server_computer",
-    "server_password": "[ADAPT] password_server_computer",
-    "workspace_path_server": "[ADAPT] path_to_FL_workspace_repository",
+    "workspace_path_client": "/path/to/client/workspace/repository",
+    "client_name": "name_of_client_computer",
+    "server_ip_address": "127.0.0.1",
+    "server_username": "username_server_computer",
+    "server_password": "password_server_computer",
+    "workspace_path_server": "/path/to/server/workspace/repository",
     "derivative_name": null,
     "modalities_to_include": {
         "anat": [
@@ -13,11 +13,11 @@
         ]
     },
     "colnames_dict": {
-        "id": "[ADAPT] column_name_of_subject_id",
-        "session": "[ADAPT] session column name",
-        "label": "[ADAPT] column_name_of_label"
+        "id": "subject_id_BIDS",
+        "session": "session_BIDS",
+        "label": "label"
     },
-    "subject_sessions": "[ADAPT] null or dict, k: subject, v: list of sessions",
-    "bids_root_path": "[ADAPT] /path/to/BIDS/root/directory/",
+    "subject_sessions": null,
+    "bids_root_path": "/path/to/BIDS/root/directory/",
     "batch_size": 8
  }

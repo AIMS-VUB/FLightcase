@@ -1,16 +1,16 @@
 {
-    "workspace_path_server": "[ADAPT] path_to_FL_workspace_repository",
-    "initial_state_dict_path": "[ADAPT] path_to_initial_state_dict or null",
+    "workspace_path_server": "/path/to/server/workspace/repository",
+    "initial_state_dict_path": null,
     "client_credentials": {
-        "[ADAPT] name_client_1": {
-            "ip_address": "[ADAPT] ip_address_client_1",
-            "username": "[ADAPT] username_client_1",
-            "password": "[ADAPT] password_client_1"
+        "name_client_1": {
+            "ip_address": "ip_address_client_1",
+            "username": "username_client_1",
+            "password": "password_client_1"
         },
-        "[ADAPT] name_client_2": {
-            "ip_address": "[ADAPT] ip_address_client_2",
-            "username": "[ADAPT] username_client_2",
-            "password": "[ADAPT] password_client_2"
+        "name_client_2": {
+            "ip_address": "ip_address_client_2",
+            "username": "username_client_2",
+            "password": "password_client_2"
         }
     }
 }
