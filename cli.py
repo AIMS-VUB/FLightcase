@@ -46,10 +46,10 @@ def prepare_workspace(workspace_path, who):
 
     if who == 'server':
         fill_or_copy(workspace_path, 'FL_plan.json')
-        fill_or_copy(workspace_path, 'FL_settings_server.json')
+        fill_or_copy(workspace_path, 'server_node_settings.json')
         copy_template(workspace_path, 'architecture.py')
     elif who == 'client':
-        fill_or_copy(workspace_path, 'FL_settings_client.json')
+        fill_or_copy(workspace_path, 'client_node_settings.json')
 
 
 if __name__ == '__main__':
