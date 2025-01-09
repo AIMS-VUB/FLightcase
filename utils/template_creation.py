@@ -39,7 +39,7 @@ def copy_template(workspace_path, file_name):
 def fill_or_copy(workspace_path, file_name):
     fill_in = False
     while fill_in not in ['yes', 'no']:
-        fill_in = input(f'\nFill in {file_name}? (yes|no): ').lower()
+        fill_in = input(f'\nFill in {file_name} (no: copies template to workspace)? (yes|no): ').lower()
     if fill_in == 'yes':
         fill_in_template(workspace_path, file_name)
     else:
