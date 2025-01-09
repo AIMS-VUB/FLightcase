@@ -117,16 +117,16 @@ def define_client_credentials():
 
 
 def define_subject_sessions():
-    specify = input('Specify subjects and sessions (yes|no)? ')
+    specify = False
     while specify not in ['yes', 'no']:
-        pass
+        specify = input('Specify subjects and sessions (yes|no)? ')
     if specify == 'yes':
         dict_to_fill = {}
         completed = False
         while not completed:
-            add_subject = input(f'Add subject (yes|no): ')
+            add_subject = False
             while add_subject not in ['yes', 'no']:
-                pass
+                add_subject = input(f'Add subject (yes|no): ')
             if add_subject == 'yes':
                 subject = input('> Enter subject name: ')
                 sessions = input(f'    >> Enter sessions for subject {subject} (separated by space): ').split(' ')
