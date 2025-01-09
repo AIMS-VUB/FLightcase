@@ -25,7 +25,7 @@ The server additionally defines the Federated Learning plan in a JSON file, cont
 
 ## How to get started
 ### Install FLightcase
-Install FLightcase in a virtual environment or conda environment on each node:
+Install FLightcase in a virtual environment or conda environment on each node. Example for virtual environment:
 1. ```python3 -m venv .venv``` (creates virtual environment called ".venv" in current workspace)
 2. ```source .venv/bin/activate``` (activate virtual environment)
 3. ```pip3 install FLightcase``` (optional: define version number, e.g. ```pip3 install FLightcase==0.1.0```)
