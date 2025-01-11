@@ -3,7 +3,7 @@
 
 This subdirectory contains a local federated learning (FL) simulation using FLightcase, 
 fine-tuning an existing [brain age model](https://github.com/MIDIconsortium/BrainAge/blob/46800008b9ed79551988230f2f5470f8cf0a9ead/Models/T1/Skull_stripped/seed_60.pt) on healthy control MRI data from [OpenNeuro](https://openneuro.org/).
-The simulation consists of 1 server node and 3 client nodes, in analogy to the real-world example in [this preprint](https://www.medrxiv.org/content/10.1101/2023.04.22.23288741v1) [^1].
+The simulation consists of 1 server node and 3 client nodes, in analogy to the real-world example in [this preprint](https://www.medrxiv.org/content/10.1101/2023.04.22.23288741v1) [1].
 Each node is represented by a separate FL workspace, a separate directory.
 
 | client name | OpenNeuro dataset                                                  | n_subjects | n_sessions_per_subject |
@@ -37,11 +37,11 @@ The data will be available in an "inputs" folder within the "simulation" folder
 1. Navigate in the terminal to the "simulation" folder
 2. ```conda env create --file environment.yml``` (creates conda environment "FLightcase_simulation")
 3. ```conda activate FLightcase_simulation``` (activates "FLightcase_simulation" environment)
-4. ```bash prepare_data.sh``` (downloads and preprocesses data (pipeline by Wood et al. 2022 [^2]))
+4. ```bash prepare_data.sh``` (downloads and preprocesses data (pipeline by Wood et al. 2022 [2]))
 5. ```conda deactivate``` (deactivates conda environment)
 
 #### Note:
-On 9 January 2025, we obtained permission by the authors of the image preprocessing pipeline [^2] to include an adapted version of the [pre_process.py file](https://github.com/MIDIconsortium/BrainAge/blob/main/pre_process.py) from their [GitHub repository](https://github.com/MIDIconsortium/BrainAge) (also included in this simulation as submodule) in ours.
+On 9 January 2025, we obtained permission by the authors of the image preprocessing pipeline [2] to include an adapted version of the [pre_process.py file](https://github.com/MIDIconsortium/BrainAge/blob/main/pre_process.py) from their [GitHub repository](https://github.com/MIDIconsortium/BrainAge) (also included in this simulation as submodule) in ours.
 The file was adapted to work with newer Python and dependency versions. We sincerely thank Dr. Thomas Booth, Dr. David Wood and Dr. Onur Ülgen for allowing us to do so!
 
 The adaptations:
@@ -76,6 +76,6 @@ Enjoy the show! :woman_dancing::man_dancing:
 ***
 
 ## References
-[^1] Denissen, S., Grothe, M., Vaneckova, M., Uher, T., Laton, J., Kudrna, M., ... & Nagels, G. (2023). Transfer learning on structural brain age models to decode cognition in MS: a federated learning approach. medRxiv, 2023-04.
+[1] Denissen, S., Grothe, M., Vaneckova, M., Uher, T., Laton, J., Kudrna, M., ... & Nagels, G. (2023). Transfer learning on structural brain age models to decode cognition in MS: a federated learning approach. medRxiv, 2023-04.
 
-[^2] Wood, D. A., Kafiabadi, S., Al Busaidi, A., Guilhem, E., Montvila, A., Lynch, J., ... & Booth, T. C. (2022). Accurate brain‐age models for routine clinical MRI examinations. Neuroimage, 249, 118871.
+[2] Wood, D. A., Kafiabadi, S., Al Busaidi, A., Guilhem, E., Montvila, A., Lynch, J., ... & Booth, T. C. (2022). Accurate brain‐age models for routine clinical MRI examinations. Neuroimage, 249, 118871.

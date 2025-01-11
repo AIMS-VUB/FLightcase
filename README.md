@@ -1,7 +1,7 @@
 # FLightcase :airplane::briefcase:
 
 A federated Learning toolbox for neuro-image research, based on secure copy protocol (SCP) via secure shell (SSH).\
-It was first introduced in a [preprint in medrXiv](https://www.medrxiv.org/content/10.1101/2023.04.22.23288741v1)[^1], 
+It was first introduced in a [preprint in medrXiv](https://www.medrxiv.org/content/10.1101/2023.04.22.23288741v1)[1], 
 and now contains a Command-Line Interface (CLI): ```FLightcase``` 
 
 ![PyPI](https://img.shields.io/pypi/v/FLightcase?label=pypi%20package)
@@ -11,7 +11,7 @@ and now contains a Command-Line Interface (CLI): ```FLightcase```
 ## Requirements
 - Unix-based operating system for each node in the network
 - All computers in the same network (e.g. connected via VPN), identifiable via an IP Address
-- All datasets in the Brain Imaging Data Structure (BIDS)[^2]
+- All datasets in the Brain Imaging Data Structure (BIDS)([2])
 
 ***
 
@@ -67,6 +67,6 @@ If you experience problems with this GitHub repository, please do not hesitate t
 ***
 
 ## References
-[^1] Denissen, S., Grothe, M., Vaneckova, M., Uher, T., Laton, J., Kudrna, M., ... & Nagels, G. (2023). Transfer learning on structural brain age models to decode cognition in MS: a federated learning approach. medRxiv, 2023-04.
+[1] Denissen, S., Grothe, M., Vaneckova, M., Uher, T., Laton, J., Kudrna, M., ... & Nagels, G. (2023). Transfer learning on structural brain age models to decode cognition in MS: a federated learning approach. medRxiv, 2023-04.
 
-[^2] Gorgolewski, K. J., Auer, T., Calhoun, V. D., Craddock, R. C., Das, S., Duff, E. P., ... & Poldrack, R. A. (2016). The brain imaging data structure, a format for organizing and describing outputs of neuroimaging experiments. Scientific data, 3(1), 1-9.
+[2] Gorgolewski, K. J., Auer, T., Calhoun, V. D., Craddock, R. C., Das, S., Duff, E. P., ... & Poldrack, R. A. (2016). The brain imaging data structure, a format for organizing and describing outputs of neuroimaging experiments. Scientific data, 3(1), 1-9.
