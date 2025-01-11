@@ -25,6 +25,13 @@ I would recommend installing miniconda. Click [this link](https://docs.conda.io/
 ### Clone this GitHub repository
 ```git clone https://github.com/AIMS-VUB/FLightcase.git```
 
+### Get submodule contents
+Get the contents of the BrainAge submodule ([MIDIconsortium "BrainAge" GitHub repo](https://github.com/MIDIconsortium/BrainAge)).
+1. ```git submodule init``` (initialise local configuration file)
+2. ```git submodule update``` (get the project contents)
+
+Note: Click [this link](https://git-scm.com/book/en/v2/Git-Tools-Submodules) for more info about this process.
+
 ### Download and preprocess the data
 The data will be available in an "inputs" folder within the "simulation" folder
 1. Navigate in the terminal to the "simulation" folder
