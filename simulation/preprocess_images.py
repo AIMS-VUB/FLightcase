@@ -4,36 +4,15 @@ Preprocess T1w brain images
 """
 
 import os
-import sys
 import pathlib
 import argparse
 import numpy as np
 import nibabel as nib
 from matplotlib.image import imsave
-from bids_validator import BIDSValidator
-from submodules.Wood_2022.pre_process import preprocess
+from pre_process import preprocess
 
 
-def dataset_is_bids(path_to_root):
-    """ Check if the dataset is BIDS-compliant
-
-    :param path_to_root: str, path to the root directory of the dataset
-    :return: bool
-    """
-
-    validator = BIDSValidator()
-    dataset_bids_bool = True
-    for root, dirs, files in os.walk(path_to_root):
-        for file in files:
-            file_path = os.path.join(root, file)
-            if not validator.is_bids(file_path.replace(path_to_root, '')):
-                print(file_path.replace(path_to_root, ''))
-                print(f'File not bids: {file_path}')
-                dataset_bids_bool = False
-    return dataset_bids_bool
-
-
-def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_gpu, Wood_2022_path):
+def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_gpu, BA_submodule_path):
     """ Preprocess T1w images of a BIDS dataset
 
     :param input_root_path: str, absolute path to BIDS root directory
@@ -47,7 +26,7 @@ def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_
             # Do not process images in "derivatives" sub-folder of the BIDS tree
             if file.endswith('_T1w.nii.gz') and f'{os.sep}derivatives{os.sep}' not in root:
                 input_path = os.path.join(root, file)
-                output_path = input_path.replace(input_root_path, output_root_path)
+                output_path = input_path.replace(input_root_path, output_root_path + os.sep)
 
                 # Check if output NIfTI is already present. If not, create destination folder path and preprocess.
                 if not os.path.exists(output_path):
@@ -56,29 +35,30 @@ def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_
                     print(f'--> Start preprocessing {input_path}')
                     print(f'--> Output destination: {output_path}')
                     preprocess_t1w_image(input_path=input_path, output_path=output_path, use_gpu=use_gpu,
-                                         skull_strip=skull_strip, Wood_2022_path=Wood_2022_path)
+                                         skull_strip=skull_strip, BA_submodule_path=BA_submodule_path)
                     break
 
 
-def preprocess_t1w_image(input_path, output_path, skull_strip, Wood_2022_path, use_gpu):
+def preprocess_t1w_image(input_path, output_path, skull_strip, BA_submodule_path, use_gpu):
     """ Preprocess T1w image
 
     :param input_path: str, absolute path to t1w image
     :param output_path: str, absolute path to output image
     :param skull_strip: bool, perform skull-stripping?
-    :param Wood_2022_path: str, absolute path to parent directory of this script
+    :param BA_submodule_path: str, absolute path to parent directory of the BrainAge submodule
     :param use_gpu: bool, use GPU?
     """
 
-    # Change working directory to the Wood_2022 submodule
-    os.chdir(Wood_2022_path)
+    # Change working directory to the BA_submodule submodule
+    os.chdir(BA_submodule_path)
 
     # Preprocess but save separately (function saves a 4D array to a NIfTI file)
     processed_array_4D = preprocess(input_path=input_path, use_gpu=use_gpu, skull_strip=skull_strip, register=True,
-                                    project_name='Wood_2022_preprocessing')
+                                    project_name='preproc_for_simulation')
     if processed_array_4D is not None:
         processed_array_3D = processed_array_4D[0, :, :, :]
-        new_image = nib.Nifti1Image(processed_array_3D, np.eye(4))
+        # np.asanyarray added with updating Python packages and making Wood pipeline compatible with it
+        new_image = nib.Nifti1Image(np.asanyarray(processed_array_3D), np.eye(4))
         nib.save(new_image, output_path)
 
 
@@ -110,8 +90,8 @@ def get_brain_slice_images(nifti_path, output_dir_path=None):
 if __name__ == "__main__":
     # Define command line options
     parser = argparse.ArgumentParser(
-        prog = 'Preprocess T1w images',
-        description = 'This program preprocesses T1w images'
+        prog='Preprocess T1w images',
+        description='This program preprocesses T1w images'
     )
     parser.add_argument('--dataset_root_path', type=str, help='Absolute path to dataset root', required=True)
     parser.add_argument('--use_gpu', action='store_true', help='Use GPU?')
@@ -125,14 +105,10 @@ if __name__ == "__main__":
     preprocessing_name = args.preprocessing_name
     skull_strip = args.skull_strip
 
-    # Stop script if the dataset is not BIDS compliant
-    if not dataset_is_bids(dataset_root_path):
-        sys.exit('Please make sure the dataset is BIDS compliant.')
-
-    # Get absolute path to Wood_2022 submodule
+    # Get absolute path to BrainAge submodule
     # Source: https://stackoverflow.com/questions/3430372/how-do-i-get-the-full-path-of-the-current-files-directory
     script_parent_dir_path = str(pathlib.Path(__file__).parent.resolve())
-    Wood_2022_path = os.path.join(script_parent_dir_path, 'submodules', 'Wood_2022')
+    BA_submodule_path = os.path.join(script_parent_dir_path, 'BrainAge_submodule')
 
     # Preprocess dataset
     preprocessed_output_root_path = os.path.join(dataset_root_path, 'derivatives', preprocessing_name)
@@ -140,7 +116,7 @@ if __name__ == "__main__":
                             output_root_path=preprocessed_output_root_path,
                             skull_strip=skull_strip,
                             use_gpu=use_gpu,
-                            Wood_2022_path=Wood_2022_path)
+                            BA_submodule_path=BA_submodule_path)
 
     # Get images of brain slices
     print('Getting images of brain slices...')

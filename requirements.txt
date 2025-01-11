@@ -1,0 +1,3 @@
+# Dependency management: https://stackoverflow.com/questions/43658870/requirements-txt-vs-setup-py
+
+-e .  # Reads from setup.py and puts in edit mode

@@ -1,0 +1,23 @@
+{
+    "workspace_path_client": "/path/to/client/workspace/repository",
+    "client_name": "name_of_client_computer",
+    "server_ip_address": "127.0.0.1",
+    "server_username": "username_server_computer",
+    "server_password": "password_server_computer",
+    "workspace_path_server": "/path/to/server/workspace/repository",
+    "derivative_name": null,
+    "modalities_to_include": {
+        "anat": [
+            "T1w.nii.gz",
+            "FLAIR.nii.gz"
+        ]
+    },
+    "colnames_dict": {
+        "id": "subject_id_BIDS",
+        "session": "session_BIDS",
+        "label": "label"
+    },
+    "subject_sessions": null,
+    "bids_root_path": "/path/to/BIDS/root/directory/",
+    "batch_size": 8
+ }

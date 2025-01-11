@@ -1,0 +1,16 @@
+{
+    "workspace_path_server": "/path/to/server/workspace/repository",
+    "initial_state_dict_path": null,
+    "client_credentials": {
+        "name_client_1": {
+            "ip_address": "ip_address_client_1",
+            "username": "username_client_1",
+            "password": "password_client_1"
+        },
+        "name_client_2": {
+            "ip_address": "ip_address_client_2",
+            "username": "username_client_2",
+            "password": "password_client_2"
+        }
+    }
+}
