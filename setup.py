@@ -28,7 +28,8 @@ setup(
         'matplotlib==3.10.0',
         'scipy==1.14.1',
         'numpy==1.26.4',  # 2.2.0 causes conflict with monai==1.4.0
-        'click==8.1.8'
+        'click==8.1.8',
+        'twine==6.0.1'
     ],
     entry_points={
         'console_scripts': [
