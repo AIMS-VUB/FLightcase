@@ -10,7 +10,7 @@ from setuptools import setup
 
 setup(
     name='FLightcase',
-    version='0.1.0',
+    version='0.1.1',
     author='Stijn Denissen',
     author_email='stijn.denissen@vub.be',
     description='FLightcase toolbox for Federated Learning',
