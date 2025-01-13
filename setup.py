@@ -15,7 +15,7 @@ setup(
     author_email='stijn.denissen@vub.be',
     description='FLightcase toolbox for Federated Learning',
     url='https://github.com/AIMS-VUB/FLightcase/',
-    license='GPLv3',
+    license='CC BY-NC-ND 4.0',
     install_requires=[
         'torch==2.5.1',
         'pandas==2.2.3',
