@@ -1,0 +1,47 @@
+# Created from setup.py:
+# 1. setup.py --> setup.cfg (using setuptools-py2cfg==2.1.0)
+# 2. setup.cfg --> pyproject.toml (using ini2toml==0.15 and manually instaling toml==0.10.2)
+# Note: to build from pyproject.toml, the "build" package is required (pip install build)
+
+
+[build-system]
+requires = [ "setuptools>=61.2",]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "FLightcase"
+version = "0.1.2"
+description = "FLightcase toolbox for Federated Learning"
+readme = "README.md"
+dependencies = [
+    "torch==2.5.1",
+    "pandas==2.2.3",
+    "monai==1.4.0",
+    "scikit-learn==1.6.0",
+    "tqdm==4.67.1",
+    "nibabel==5.3.2",
+    "paramiko==3.5.0",
+    "scp==0.15.0",
+    "matplotlib==3.10.0",
+    "scipy==1.14.1",
+    "numpy==1.26.4",
+    "click==8.1.8",
+    "twine==6.0.1"  # To upload to PyPI
+]
+
+[[project.authors]]
+name = "Stijn Denissen"
+email = "stijn.denissen@vub.be"
+
+[project.license]
+text = "CC BY-NC-ND 4.0"
+
+[project.urls]
+Homepage = "https://github.com/AIMS-VUB/FLightcase/"
+
+[project.scripts]
+FLightcase = "cli:cli"
+
+[tool.setuptools]
+packages = []
+include-package-data = false
