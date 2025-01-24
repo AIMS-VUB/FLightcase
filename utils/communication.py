@@ -225,9 +225,10 @@ def clean_up_workspace(workspace_dir_path, who):
                 dest_file_path = os.path.join(root, 'results', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
             # Settings files
-            elif any(file.endswith(ext) for ext in ['.json', 'ws_path.txt', 'dataset_size.txt', '.py']):
+            elif any(file.endswith(ext) for ext in ['.json', 'ws_path.txt', 'dataset_size.txt', '.py',
+                                                    'stop_training.txt']):
                 dest_file_path = os.path.join(root, 'settings', file)
-                if file in ['architecture.py', 'FL_plan.json', f'FL_settings_{who}.json', 'stop_training.txt']:
+                if file in ['architecture.py', 'FL_plan.json', f'FL_settings_{who}.json']:
                     os.system(f'cp {src_file_path} {dest_file_path}')
                 else:
                     os.system(f'mv {src_file_path} {dest_file_path}')
