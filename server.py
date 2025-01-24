@@ -21,7 +21,7 @@ import datetime as dt
 from utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
                                        get_model_param_info, import_net_architecture, copy_net)
 from utils.communication import clean_up_workspace, send_to_all_clients, collect_client_info
-from utils.tracking import print_FL_plan
+from utils.tracking import print_FL_plan, create_overall_loss_df
 from utils.results import update_avg_val_loss, calculate_overall_test_mae
 
 # Filter deprecation warnings
@@ -144,6 +144,10 @@ def server(settings_path):
         round_duration = round_stop_time - round_start_time
         ETA = (round_stop_time + round_duration * (n_rounds - fl_round - 1)).strftime('%Y/%m/%d, %H:%M:%S')
         print(f'Round time: {round_duration / 60} min || ETA: {ETA}')
+
+    # Combine all train/val loss results across clients and rounds in one dataframe
+    overall_loss_df = create_overall_loss_df(workspace_path_server)
+    overall_loss_df.to_csv(os.path.join(workspace_path_server, 'overall_loss_df.csv'))
 
     # Create dataframe with average validation loss across clients
     avg_val_loss_df = pd.DataFrame({'avg_val_loss_clients': avg_val_loss_clients,
