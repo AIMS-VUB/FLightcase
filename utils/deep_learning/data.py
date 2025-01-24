@@ -125,29 +125,52 @@ def add_neuro_data_paths(df, modalities_dict, bids_root_path, colnames_dict, der
         for filename_tag in filename_tags:
             new_col = f'path_{filename_tag.split(".")[0]}'
             new_cols.append(new_col)
-            id_col, ses_col = colnames_dict['id'], colnames_dict['session']
-            df[new_col] = df.apply(lambda x: create_path(bids_root_path, x[id_col], x[ses_col], data_type,
-                                                         filename_tag, derivative_name), axis=1)
+            id_col = colnames_dict['id']
+            path_list = []
+            for i, row in df.iterrows():
+                path_items_dict = {
+                    'bids_root_path': bids_root_path,
+                    'sub_id': row[id_col],
+                    'data_type': data_type,
+                    'filename_tag': filename_tag,
+                    'derivative_name': derivative_name
+                }
+                if 'session' in colnames_dict.keys():
+                    path_items_dict['session'] = row[colnames_dict['session']]
+                else:
+                    path_items_dict['session'] = None
+                path_list.append(create_path(path_items_dict))
+            df[new_col] = path_list
     return df, new_cols
 
 
-def create_path(bids_root_path, sub, ses, modality, suffix, derivative_name):
+def create_path(path_items_dict):
     """
     Creates path to the neuro data
 
-    :param bids_root_path: str, path to BIDS root directory
-    :param sub: str, subject ID
-    :param ses: str, session ID
-    :param modality: str, data modality (e.g. "anat")
-    :param suffix: str, sub-modality suffix (e.g. "T1w.nii.gz")
-    :param derivative_name: str, name of the subfolder in the derivatives folder if applicable
+    :param path_items_dict: dict, contains all info to create the path
     :return: str, path
     """
-    filename = f'{sub}_{ses}_{suffix}'
-    if derivative_name is not None:
-        path = os.path.join(bids_root_path, 'derivatives', derivative_name, sub, modality, ses, filename)
+
+    bids_root_path = path_items_dict['bids_root_path']
+    sub_id = path_items_dict['sub_id']
+    session = path_items_dict['session']
+    data_type = path_items_dict['data_type']
+    filename_tag = path_items_dict['filename_tag']
+    derivative_name = path_items_dict['derivative_name']
+
+    if session is not None:
+        filename = f'{sub_id}_{session}_{filename_tag}'
+        if derivative_name is not None:
+            path = os.path.join(bids_root_path, 'derivatives', derivative_name, sub_id, data_type, session, filename)
+        else:
+            path = os.path.join(bids_root_path, sub_id, data_type, session, filename)
     else:
-        path = os.path.join(bids_root_path, sub, modality, ses, filename)
+        filename = f'{sub_id}_{filename_tag}'
+        if derivative_name is not None:
+            path = os.path.join(bids_root_path, 'derivatives', derivative_name, sub_id, data_type, filename)
+        else:
+            path = os.path.join(bids_root_path, sub_id, data_type, filename)
     return path
 
 
