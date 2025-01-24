@@ -269,7 +269,7 @@ def is_experiment_folder(dir_name):
     :param dir_name: str, directory name
     :return: bool
     """
-    return re.fullmatch('\A[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}h[0-9]{2}m[0-9]{2}s\Z', dir_name)
+    return bool(re.fullmatch('\A[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}h[0-9]{2}m[0-9]{2}s\Z', dir_name))
 
 
 def remove_transfer_completion_files(workspace_dir_path, print_tracking=False):
