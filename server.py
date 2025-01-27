@@ -143,7 +143,7 @@ def server(settings_path):
         round_stop_time = dt.datetime.now()
         round_duration = round_stop_time - round_start_time
         ETA = (round_stop_time + round_duration * (n_rounds - fl_round - 1)).strftime('%Y/%m/%d, %H:%M:%S')
-        print(f'Round time: {round_duration / 60} min || ETA: {ETA}')
+        print(f'Round time: {str(round_duration)} || ETA: {ETA}')
 
     # Combine all train/val loss results across clients and rounds in one dataframe
     overall_loss_df = create_overall_loss_df(workspace_path_server)
