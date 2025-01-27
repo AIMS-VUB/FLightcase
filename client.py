@@ -19,6 +19,7 @@ import pandas as pd
 from utils.deep_learning.data import get_data_loader, split_data, prepare_participants_df
 from utils.deep_learning.model import get_weights, get_weighted_average_model, import_net_architecture, copy_net
 from utils.deep_learning.evaluation import evaluate
+from utils.deep_learning.general import get_device
 from utils.communication import (wait_for_file, send_file, clean_up_workspace, send_client_info_to_server,
                                  send_test_df_to_server)
 from utils.results import create_test_true_pred_df, create_test_scatterplot, create_test_df_for_server
@@ -53,6 +54,7 @@ def client(settings_path):
     subject_sessions = settings_dict.get('subject_sessions')            # Which subject ids to take into account?
     bids_root_path = settings_dict.get('bids_root_path')                # Path to BIDS root
     batch_size = int(settings_dict.get('batch_size'))                   # Batch size
+    device = get_device(settings_dict.get('device'))                    # Device for DL process (cpu, cuda, cuda:0, ...)
 
     # Create workspace folder
     if not os.path.exists(workspace_path_client):
@@ -94,7 +96,6 @@ def client(settings_path):
 
     # General deep learning settings
     criterion = get_criterion(criterion_txt)
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     net_architecture = import_net_architecture(architecture_path)
     test_loader = None
 
