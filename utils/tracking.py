@@ -38,3 +38,17 @@ def create_overall_loss_df(workspace_path_server):
     df = df.sort_values(by=['fl_round', 'client']).reset_index(drop=True)
 
     return df
+
+
+def fl_duration_print_save(start_time, stop_time, workspace_path_server):
+    """
+    This function prints and saves the FL duration
+    :param start_time: datetime object
+    :param stop_time: datetime object
+    :param workspace_path_server: str, absolute path to workspace server
+    """
+
+    fl_duration = stop_time - start_time
+    with open(os.path.join(workspace_path_server, 'FL_duration.txt'), 'w') as duration_file:
+        duration_file.write(str(fl_duration))
+    print(f'Total federated learning duration: {str(fl_duration)}')

@@ -210,6 +210,7 @@ def clean_up_workspace(workspace_dir_path, who):
     subdirs = ['state_dicts', 'results', 'data', 'settings']
     if who == 'server':
         subdirs.remove('data')
+        subdirs.append('log')
     for subdir in subdirs:
         subdir_path = os.path.join(workspace_dir_path, subdir)
         if not os.path.exists(subdir_path):
@@ -235,6 +236,10 @@ def clean_up_workspace(workspace_dir_path, who):
             # Data files
             elif file.endswith('tsv'):
                 dest_file_path = os.path.join(root, 'data', file)
+                os.system(f'mv {src_file_path} {dest_file_path}')
+            # Log files
+            elif file == 'fl_duration.txt':
+                dest_file_path = os.path.join(root, 'log', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
             # State dicts
             elif file.endswith('.pt'):

@@ -21,7 +21,7 @@ import datetime as dt
 from utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
                                        get_model_param_info, import_net_architecture, copy_net)
 from utils.communication import clean_up_workspace, send_to_all_clients, collect_client_info
-from utils.tracking import print_FL_plan, create_overall_loss_df
+from utils.tracking import print_FL_plan, create_overall_loss_df, fl_duration_print_save
 from utils.results import update_avg_val_loss, calculate_overall_test_mae
 
 # Filter deprecation warnings
@@ -171,10 +171,9 @@ def server(settings_path):
     print('Cleaning up workspace...')
     clean_up_workspace(workspace_path_server, who='server')
 
-    # Print total FL duration
+    # Print and save total FL duration
     fl_stop_time = dt.datetime.now()
-    fl_duration = fl_stop_time - fl_start_time
-    print(f'Total federated learning duration: {fl_duration/3600} hrs')
+    fl_duration_print_save(fl_start_time, fl_stop_time, workspace_path_server)
 
 
 if __name__ == "__main__":
