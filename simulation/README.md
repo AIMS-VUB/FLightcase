@@ -51,12 +51,6 @@ The adaptations:
   - removed the "reoriented_affine" input
   - removed the step taking the first element of the output
 
-### Prepare virtual environment
-Note: automatically builds FLightcase. Only one virtual environment needs to be created, which can be used by all virtual nodes.
-1. ```python3 -m venv .FLightcase_venv```
-2. ```source .FLightcase_venv/bin/activate```
-3. ```pip3 install -r requirements.txt```
-
 ### Prepare workspaces
 For this, we refer to the eponymous header in the README in the parent directory.
 - We recommend to create an "FL_simulation" parent folder, and to create the four workspace directories in this folder.
@@ -72,7 +66,7 @@ For this, we refer to the eponymous header in the README in the parent directory
 ***
 
 ## Running FLightcase
-Open 4 terminals, one for the server, and 3 for the clients. Activate the virtual environment on each terminal.
+Open 4 terminals, one for the server, and 3 for the clients. Activate the `FLightcase_simulation` conda environment on each terminal.
 1. On client nodes, run: ```FLightcase run-client --settings_path /path/to/client_node_settings.json```
 2. On the server node, run ```FLightcase run-server --settings_path /path/to/server_node_settings.json```
 

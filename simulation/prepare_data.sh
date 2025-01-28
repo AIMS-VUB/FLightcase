@@ -18,13 +18,10 @@ echo "Downloading data ..."
 echo "####################"
 echo
 
-datalad clone https://github.com/OpenNeuroDatasets/ds003083.git inputs/ds003083/
-datalad clone https://github.com/OpenNeuroDatasets/ds000229.git inputs/ds000229/
-datalad clone https://github.com/OpenNeuroDatasets/ds005530.git inputs/ds005530/
-
-datalad get inputs/ds003083/*/anat/*T1w.nii.gz
-datalad get inputs/ds000229/*/anat/*T1w.nii.gz
-datalad get inputs/ds005530/*/anat/*T1w.nii.gz
+mkdir inputs
+aws s3 sync --no-sign-request s3://openneuro.org/ds000229 inputs/ds000229 --exclude "*" --include "participants.tsv" --include "*T1w.nii.gz"
+aws s3 sync --no-sign-request s3://openneuro.org/ds003083 inputs/ds003083 --exclude "*" --include "participants.tsv" --include "*T1w.nii.gz"
+aws s3 sync --no-sign-request s3://openneuro.org/ds005530 inputs/ds005530 --exclude "*" --include "participants.tsv" --include "*T1w.nii.gz"
 
 ## Preprocess data
 echo

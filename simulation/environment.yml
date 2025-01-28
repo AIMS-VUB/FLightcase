@@ -9,16 +9,12 @@ channels:
 dependencies:
   - python=3.11
   - pip=24.2
-  - git=2.45.2
-  - git-annex=10.20230626
-  - datalad=1.1.4
-  - datalad-installer=1.1.1
   - fsleyes=1.13.0
   - pip:
+      - awscli==1.37.7  # Installation problems with git-annex, therefore stepped away from downloading with datalad
       - monai==1.4.0
       - matplotlib==3.10.0
       - xlrd==1.2.0
-      - tqdm==4.62.3
       - HD-BET==2.0
       - pandas==2.2.3
       # Antspyx: Version number might be deleted as antspyx history often deleted in PyPI. Then try with latest version.
@@ -26,3 +22,4 @@ dependencies:
       # - git+https://github.com/MIC-DKFZ/HD-BET.git@678e44d546a84de0f2a7fc245f176b82b7d912fd
       # - git+https://github.com/ANTsX/ANTsPy.git@5d5463897f46f57e974a7b79020151b3d4c9772d
       - antspyx==0.5.4
+      - FLightcase==0.1.2
