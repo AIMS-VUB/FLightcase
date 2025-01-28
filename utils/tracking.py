@@ -4,7 +4,7 @@ Functions related to tracking
 
 import os
 import pandas as pd
-from communication import is_experiment_folder
+from communication import experiment_folder_in_path
 
 
 def print_FL_plan(FL_plan_dict):
@@ -28,7 +28,7 @@ def create_overall_loss_df(workspace_path_server):
     for root, dirs, files in os.walk(workspace_path_server):
         for file in files:
             # Skip files in other experiment folders
-            if file.endswith('train_results.csv') and sum([is_experiment_folder(x) for x in root.split(os.sep)]) == 0:
+            if file.endswith('train_results.csv') and not experiment_folder_in_path(root):
                 client = file.split('_')[0]
                 sub_df = pd.read_csv(os.path.join(root, file))
                 sub_df['client'] = [client] * len(sub_df)
