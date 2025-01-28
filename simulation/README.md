@@ -67,6 +67,7 @@ For this, we refer to the eponymous header in the README in the parent directory
 - When filling in the settings JSON files:
   - The names listed in the table above can be used.
   - As this is a local simulation, please choose "127.0.0.1" as the ip address for each node (server and clients).
+  - As all data sets did not specify a session, remove the "session" key from the settings JSON per client
 
 ***
 
