@@ -8,16 +8,19 @@ import pathlib
 import argparse
 import numpy as np
 import nibabel as nib
+import torch.nn
 from matplotlib.image import imsave
 from pre_process import preprocess
 
 
-def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_gpu, BA_submodule_path):
+def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_gpu, BA_submodule_path,
+                            output_resolution=None):
     """ Preprocess T1w images of a BIDS dataset
 
     :param input_root_path: str, absolute path to BIDS root directory
     :param output_root_path: str, absolute path to output root directory
     :param skull_strip: bool, perform skull-stripping?
+    :param output_resolution: list/tuple, dims to resample to
     :param use_gpu: bool, use GPU?
     """
 
@@ -35,17 +38,19 @@ def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_
                     print(f'--> Start preprocessing {input_path}')
                     print(f'--> Output destination: {output_path}')
                     preprocess_t1w_image(input_path=input_path, output_path=output_path, use_gpu=use_gpu,
-                                         skull_strip=skull_strip, BA_submodule_path=BA_submodule_path)
+                                         skull_strip=skull_strip, BA_submodule_path=BA_submodule_path,
+                                         output_resolution=output_resolution)
                     break
 
 
-def preprocess_t1w_image(input_path, output_path, skull_strip, BA_submodule_path, use_gpu):
+def preprocess_t1w_image(input_path, output_path, skull_strip, BA_submodule_path, use_gpu, output_resolution=None):
     """ Preprocess T1w image
 
     :param input_path: str, absolute path to t1w image
     :param output_path: str, absolute path to output image
     :param skull_strip: bool, perform skull-stripping?
     :param BA_submodule_path: str, absolute path to parent directory of the BrainAge submodule
+    :param output_resolution: list/tuple, dims to downsample to
     :param use_gpu: bool, use GPU?
     """
 
@@ -59,7 +64,28 @@ def preprocess_t1w_image(input_path, output_path, skull_strip, BA_submodule_path
         processed_array_3D = processed_array_4D[0, :, :, :]
         # np.asanyarray added with updating Python packages and making Wood pipeline compatible with it
         new_image = nib.Nifti1Image(np.asanyarray(processed_array_3D), np.eye(4))
+        if output_resolution is not None:
+            new_image = resample_3d(new_image, output_resolution)
+            print(new_image.get_fdata().shape)
         nib.save(new_image, output_path)
+
+
+def resample_3d(nifti_3d, output_resolution):
+    """
+    This function resamples a 3D NIfTI image to the desired resolution
+    """
+    # Convert NIfTI image to torch tensor and add N and C dimension
+    new_image = torch.tensor(nifti_3d.get_fdata()).unsqueeze(dim=0).unsqueeze(dim=0)
+
+    # Define the downscale function and apply to image
+    # Source: https://discuss.pytorch.org/t/info-need-how-resize-3d-volumetric-data/150944/2
+    downscale_func = torch.nn.Upsample(output_resolution)
+    new_image = downscale_func(new_image)
+
+    # Take last 3 dimensions and convert back to NIfTI
+    new_image = nib.Nifti1Image(new_image.squeeze(dim=0).squeeze(dim=0).numpy(), np.eye(4))
+
+    return new_image
 
 
 def get_brain_slice_images(nifti_path, output_dir_path=None):
@@ -97,6 +123,7 @@ if __name__ == "__main__":
     parser.add_argument('--use_gpu', action='store_true', help='Use GPU?')
     parser.add_argument('--preprocessing_name', type=str, required=True, help='Preprocessing pipeline description')
     parser.add_argument('--skull_strip', action='store_true', help='Perform skull-stripping?')
+    parser.add_argument('--output_resolution', nargs='+', default=[130, 130, 130], help='Resolution of output image')
 
     # Parse arguments
     args = parser.parse_args()
@@ -104,6 +131,7 @@ if __name__ == "__main__":
     use_gpu = args.use_gpu
     preprocessing_name = args.preprocessing_name
     skull_strip = args.skull_strip
+    output_resolution = [int(i) for i in args.output_resolution]
 
     # Get absolute path to BrainAge submodule
     # Source: https://stackoverflow.com/questions/3430372/how-do-i-get-the-full-path-of-the-current-files-directory
@@ -116,7 +144,8 @@ if __name__ == "__main__":
                             output_root_path=preprocessed_output_root_path,
                             skull_strip=skull_strip,
                             use_gpu=use_gpu,
-                            BA_submodule_path=BA_submodule_path)
+                            BA_submodule_path=BA_submodule_path,
+                            output_resolution=output_resolution)
 
     # Get images of brain slices
     print('Getting images of brain slices...')

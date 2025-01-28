@@ -32,6 +32,6 @@ echo "######################"
 echo "Preprocessing data ..."
 echo "######################"
 echo
-python3 preprocess_images.py --dataset_root_path "${SCRIPT_DIR}/inputs/ds003083/" --use_gpu --preprocessing_name Wood_2022 --skull_strip
-python3 preprocess_images.py --dataset_root_path "${SCRIPT_DIR}/inputs/ds000229/" --use_gpu --preprocessing_name Wood_2022 --skull_strip
-python3 preprocess_images.py --dataset_root_path "${SCRIPT_DIR}/inputs/ds005530/" --use_gpu --preprocessing_name Wood_2022 --skull_strip
+python3 preprocess_images.py --dataset_root_path "${SCRIPT_DIR}/inputs/ds003083/" --preprocessing_name Wood_2022_downsampled --output_resolution 26 26 26
+python3 preprocess_images.py --dataset_root_path "${SCRIPT_DIR}/inputs/ds000229/" --preprocessing_name Wood_2022_downsampled --output_resolution 26 26 26
+python3 preprocess_images.py --dataset_root_path "${SCRIPT_DIR}/inputs/ds005530/" --preprocessing_name Wood_2022_downsampled --output_resolution 26 26 26
