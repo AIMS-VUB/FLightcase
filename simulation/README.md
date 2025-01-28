@@ -2,7 +2,7 @@
 :construction::wrench: Under construction :wrench::construction:
 
 This subdirectory contains a local federated learning (FL) simulation using FLightcase, 
-fine-tuning an existing [brain age model](https://github.com/MIDIconsortium/BrainAge/blob/46800008b9ed79551988230f2f5470f8cf0a9ead/Models/T1/Skull_stripped/seed_60.pt) on healthy control MRI data from [OpenNeuro](https://openneuro.org/).
+fine-tuning a convolutional neural network (CNN) on healthy control MRI data from [OpenNeuro](https://openneuro.org/).
 The simulation consists of 1 server node and 3 client nodes, in analogy to the real-world example in [this preprint](https://www.medrxiv.org/content/10.1101/2023.04.22.23288741v1) [1].
 Each node is represented by a separate FL workspace, a separate directory.
 
