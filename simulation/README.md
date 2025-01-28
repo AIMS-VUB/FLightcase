@@ -60,6 +60,10 @@ Note: automatically builds FLightcase. Only one virtual environment needs to be 
 ### Prepare workspaces
 For this, we refer to the eponymous header in the README in the parent directory.
 - We recommend to create an "FL_simulation" parent folder, and to create the four workspace directories in this folder.
+- The AdaptedSFCN network in the template "architecture.py" file is used for this simulation.
+  - Note: This is an adapted version of the Simple Fully Convolutional Network (SFCN) architecture by Dr. Han Peng and colleagues
+  - Adapted from the ["sfcn.py" file](https://github.com/ha-ha-ha-han/UKBiobank_deep_pretrain/blob/master/dp_model/model_files/sfcn.py) in the [UKBiobank_deep_pretrain GitHub repository](https://github.com/ha-ha-ha-han/UKBiobank_deep_pretrain)
+  - Link to paper: click [here](https://www.sciencedirect.com/science/article/pii/S1361841520302358)
 - When filling in the settings JSON files:
   - The names listed in the table above can be used.
   - As this is a local simulation, please choose "127.0.0.1" as the ip address for each node (server and clients).
