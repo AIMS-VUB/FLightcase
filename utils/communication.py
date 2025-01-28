@@ -241,7 +241,9 @@ def clean_up_workspace(workspace_dir_path, who):
             elif any(file.endswith(ext) for ext in ['.json', 'ws_path.txt', 'dataset_size.txt', '.py',
                                                     'stop_training.txt']):
                 dest_file_path = os.path.join(date_time_folder_path, 'settings', file)
-                if file in ['architecture.py', 'FL_plan.json', f'FL_settings_{who}.json']:
+                if file == f'FL_settings_{who}.json':
+                    os.system(f'cp {src_file_path} {dest_file_path}')
+                elif file in ['architecture.py', 'FL_plan.json'] and who == 'server':
                     os.system(f'cp {src_file_path} {dest_file_path}')
                 else:
                     os.system(f'mv {src_file_path} {dest_file_path}')
@@ -250,7 +252,7 @@ def clean_up_workspace(workspace_dir_path, who):
                 dest_file_path = os.path.join(date_time_folder_path, 'data', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
             # Log files
-            elif file == 'fl_duration.txt':
+            elif file == 'FL_duration.txt':
                 dest_file_path = os.path.join(date_time_folder_path, 'log', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
             # State dicts
