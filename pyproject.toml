@@ -40,8 +40,15 @@ text = "CC BY-NC-ND 4.0"
 Homepage = "https://github.com/AIMS-VUB/FLightcase/"
 
 [project.scripts]
-FLightcase = "cli:cli"
+FLightcase = "FLightcase.__main__:cli"
 
-[tool.setuptools]
-packages = []
-include-package-data = false
+# Source for optimal package structure and contents of pyproject.toml:
+# - https://stackoverflow.com/questions/50585246/pip-install-creates-only-the-dist-info-not-the-package
+# - https://medium.com/@kavyamalla/build-and-install-python-package-with-multiple-directories-referencing-one-another-f27cdfe667e2
+[tool.setuptools.packages]
+find = {}  # To create the "FLightcase" folder in the "lib" subfolder of a venv
+
+# https://stackoverflow.com/questions/76886313/how-to-include-json-files-in-a-python-package-using-a-pyproject-toml
+# https://stackoverflow.com/questions/76485082/package-and-find-non-python-files-in-a-python-package
+[tool.setuptools.package-data]
+'*' = ['*.*']  # To include other files than .py files

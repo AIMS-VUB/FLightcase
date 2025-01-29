@@ -16,14 +16,14 @@ import torch
 import argparse
 import paramiko
 import pandas as pd
-from utils.deep_learning.data import get_data_loader, split_data, prepare_participants_df
-from utils.deep_learning.model import get_weights, get_weighted_average_model, import_net_architecture, copy_net
-from utils.deep_learning.evaluation import evaluate
-from utils.deep_learning.general import get_device
-from utils.communication import (wait_for_file, send_file, clean_up_workspace, send_client_info_to_server,
+from FLightcase.utils.deep_learning.data import get_data_loader, split_data, prepare_participants_df
+from FLightcase.utils.deep_learning.model import get_weights, get_weighted_average_model, import_net_architecture, copy_net
+from FLightcase.utils.deep_learning.evaluation import evaluate
+from FLightcase.utils.deep_learning.general import get_device
+from FLightcase.utils.communication import (wait_for_file, send_file, clean_up_workspace, send_client_info_to_server,
                                  send_test_df_to_server)
-from utils.results import create_test_true_pred_df, create_test_scatterplot, create_test_df_for_server
-from utils.deep_learning.train import train, get_criterion, get_optimizer
+from FLightcase.utils.results import create_test_true_pred_df, create_test_scatterplot, create_test_df_for_server
+from FLightcase.utils.deep_learning.train import train, get_criterion, get_optimizer
 
 # Suppress printing of paramiko info
 # Source: https://stackoverflow.com/questions/340341/suppressing-output-of-paramiko-sshclient-class

@@ -9,8 +9,8 @@ import datetime as dt
 import torch.nn as nn
 from tqdm import tqdm
 from sklearn.metrics import mean_absolute_error
-from utils.deep_learning.model import copy_net
-from utils.deep_learning.evaluation import evaluate
+from FLightcase.utils.deep_learning.model import copy_net
+from FLightcase.utils.deep_learning.evaluation import evaluate
 
 
 def get_criterion(criterion_txt):

@@ -18,11 +18,11 @@ import warnings
 import numpy as np
 import pandas as pd
 import datetime as dt
-from utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
+from FLightcase.utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
                                        get_model_param_info, import_net_architecture, copy_net)
-from utils.communication import clean_up_workspace, send_to_all_clients, collect_client_info
-from utils.tracking import print_FL_plan, create_overall_loss_df, fl_duration_print_save
-from utils.results import update_avg_val_loss, calculate_overall_test_mae
+from FLightcase.utils.communication import clean_up_workspace, send_to_all_clients, collect_client_info
+from FLightcase.utils.tracking import print_FL_plan, create_overall_loss_df, fl_duration_print_save
+from FLightcase.utils.results import update_avg_val_loss, calculate_overall_test_mae
 
 # Filter deprecation warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)

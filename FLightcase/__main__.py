@@ -9,9 +9,9 @@ Sources:
 
 import os
 import click
-from server import server
-from client import client
-from utils.template_creation import fill_or_copy, copy_template
+from FLightcase.server import server
+from FLightcase.client import client
+from FLightcase.utils.template_creation import fill_or_copy, copy_template
 
 
 @click.group()
