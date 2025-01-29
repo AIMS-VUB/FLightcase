@@ -35,8 +35,8 @@ Note: Click [this link](https://git-scm.com/book/en/v2/Git-Tools-Submodules) for
 ### Download and preprocess the data
 The data will be available in an "inputs" folder within the "simulation" folder
 1. Navigate in the terminal to the "simulation" folder
-2. ```conda env create --file environment.yml``` (creates conda environment "FLightcase_simulation")
-3. ```conda activate FLightcase_simulation``` (activates "FLightcase_simulation" environment)
+2. ```conda env create --file environment.yml``` (creates conda environment "FLightcase_sim_data_prep")
+3. ```conda activate FLightcase_sim_data_prep``` (activates "FLightcase_sim_data_prep" environment)
 4. ```bash prepare_data.sh``` (downloads and preprocesses data (pipeline by Wood et al. 2022 [2]))
 5. ```conda deactivate``` (deactivates conda environment)
 
@@ -50,6 +50,12 @@ The adaptations:
 - In the spacing phase using Monai's "Spacing" class, we:
   - removed the "reoriented_affine" input
   - removed the step taking the first element of the output
+
+### Prepare virtual environment
+Note: automatically builds FLightcase. Only one virtual environment needs to be created, which can be used by all virtual nodes.
+1. ```python3 -m venv .FLightcase_venv```
+2. ```source .FLightcase_venv/bin/activate```
+3. ```pip3 install -r requirements.txt```
 
 ### Prepare workspaces
 For this, we refer to the eponymous header in the README in the parent directory.
@@ -66,7 +72,7 @@ For this, we refer to the eponymous header in the README in the parent directory
 ***
 
 ## Running FLightcase
-Open 4 terminals, one for the server, and 3 for the clients. Activate the `FLightcase_simulation` conda environment on each terminal.
+Open 4 terminals, one for the server, and 3 for the clients. Activate the virtual environment on each terminal.
 1. On client nodes, run: ```FLightcase run-client --settings_path /path/to/client_node_settings.json```
 2. On the server node, run ```FLightcase run-server --settings_path /path/to/server_node_settings.json```
 
