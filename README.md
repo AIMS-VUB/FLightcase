@@ -12,6 +12,7 @@ and now contains a Command-Line Interface (CLI): ```FLightcase```
 - Unix-based operating system for each node in the network
 - All computers in the same network (e.g. connected via VPN), identifiable via an IP Address
 - All datasets in the Brain Imaging Data Structure (BIDS)([2])
+- Make sure sending files via SCP is possible (e.g. on Mac, enable "Remote Login" (click [here](https://discussions.apple.com/thread/1738370?sortBy=rank) for more info))
 
 ***
 
