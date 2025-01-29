@@ -259,8 +259,6 @@ def clean_up_workspace(workspace_dir_path, who):
             elif file.endswith('.pt'):
                 dest_file_path = os.path.join(date_time_folder_path, 'state_dicts', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
-            else:
-                raise ValueError(f'No handler specified for file = {file}')
         break
 
 
