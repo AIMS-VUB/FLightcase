@@ -3,6 +3,7 @@ General DL functions
 """
 
 import torch
+import warnings
 
 
 def get_device(device_str):
@@ -16,7 +17,7 @@ def get_device(device_str):
             device = torch.device(device_str)
             print(f'{device_str} available!')
         else:
-            raise Warning('cuda is not available, continuing with cpu instead')
+            warnings.warn('cuda is not available, continuing with cpu instead')
             device = torch.device('cpu')
     else:
         raise ValueError(f'Device request {device_str} not understood. Choose from: "cpu", "cuda", "cuda:N", '
