@@ -44,22 +44,31 @@ def send_file(remote_ip_address, username, password, sender_file_path, workspace
     :param workspace_path_sender: str, path to sender workspace
     :param workspace_path_receiver: str, path to receiver workspace
     """
-    # Create ssh and scp client
-    # Source to fix issue "scp.SCPException: Timeout waiting for scp response":
-    # ==> https://github.com/ktbyers/netmiko/issues/1254
-    ssh = createSSHClient(remote_ip_address, 22, username, password)
-    scp = SCPClient(ssh.get_transport(), socket_timeout=60)
 
-    # Share model with receiver
+    # Define paths
     receiver_file_path = sender_file_path.replace(workspace_path_sender, workspace_path_receiver)
-    scp.put(sender_file_path, remote_path=receiver_file_path)
-
-    # Share txt file with client that marks the end of the file transfer
     sender_txt_file_path = sender_file_path.replace(os.path.splitext(sender_file_path)[1], '_transfer_completed.txt')
     receiver_txt_file_path = sender_txt_file_path.replace(workspace_path_sender, workspace_path_receiver)
+
+    # Prepare the txt file that marks the end of the file transfer
     with open(sender_txt_file_path, 'w') as file:
         file.write(f'The following file was succesfully transferred: {os.path.basename(sender_file_path)}')
-    scp.put(sender_txt_file_path, receiver_txt_file_path)
+
+    # Use "cp" command if local simulation
+    # Note: Due to persisting Exception when running locally on Mac:
+    # ==> "SSHException: Error reading SSH protocol banner"
+    if remote_ip_address == '127.0.0.1':
+        os.system(f'cp {sender_file_path} {receiver_file_path}')            # Send info to receiver
+        os.system(f'cp {sender_txt_file_path} {receiver_txt_file_path}')    # Completion marker
+    else:
+        # Create ssh and scp client
+        # Source to fix issue "scp.SCPException: Timeout waiting for scp response":
+        # ==> https://github.com/ktbyers/netmiko/issues/1254
+        ssh = createSSHClient(remote_ip_address, 22, username, password)
+        scp = SCPClient(ssh.get_transport(), socket_timeout=60)
+
+        scp.put(sender_file_path, remote_path=receiver_file_path)           # Send info to receiver
+        scp.put(sender_txt_file_path, receiver_txt_file_path)               # Completion marker
 
 
 def wait_for_file(file_path, stop_with_stop_file = False):

@@ -12,6 +12,8 @@ Each node is represented by a separate FL workspace, a separate directory.
 | client_2    | [ds000229](https://openneuro.org/datasets/ds000229/versions/00001) | 15         | 1                      |
 | client_3    | [ds005530](https://openneuro.org/datasets/ds005530/versions/1.0.8) | 18         | 1                      |
 
+Note: Due to a persistent SSHException during local simulation on Mac, for local simulation using 127.0.0.1 as IP address, "cp" is used instead of scp to copy files.
+
 ***
 
 ## Requirements
