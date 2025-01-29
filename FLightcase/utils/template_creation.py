@@ -65,17 +65,31 @@ def fill_in_template(workspace_path, file_name):
             new_v = define_colnames_dict()
         elif k == "subject_sessions":
             new_v = define_subject_sessions()
-        elif type(v) in [str, float, int] or v is None:
+        elif type(v) == str:
             new_v = input(f'> Specify "{k}" (hit "enter" for default: "{v}"): ')
             if new_v == '':
                 new_v = v
                 print(f'Choosing default value "{v}"')
-            elif new_v == 'null':
-                new_v = None
-            elif type(new_v) == float:
-                new_v = float(new_v)
-            elif type(new_v) == int:
+        elif type(v) == int:
+            new_v = input(f'> Specify "{k}" (integer, hit "enter" for default: {v}): ')
+            if new_v == '':
+                new_v = v
+            else:
                 new_v = int(new_v)
+        elif type(v) == float:
+            new_v = input(f'> Specify "{k}" (int/float (. (dot) decimal point), hit "enter" for default: {v}): ')
+            if new_v == '':
+                new_v = v
+            else:
+                new_v = float(new_v)
+        elif v is None:
+            new_v = input(f'> Specify "{k}" (hit "enter" for default: null): ')
+            if new_v == '':
+                new_v = v
+            else:
+                new_v = str(new_v)
+        else:
+            raise ValueError(f'Key "{k}" not recognized.')
         completed_dict[k] = new_v
 
     # Write dict to workspace
