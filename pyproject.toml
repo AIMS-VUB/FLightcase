@@ -52,3 +52,11 @@ find = {}  # To create the "FLightcase" folder in the "lib" subfolder of a venv
 # https://stackoverflow.com/questions/76485082/package-and-find-non-python-files-in-a-python-package
 [tool.setuptools.package-data]
 '*' = ['*.*']  # To include other files than .py files
+
+
+####################################################################
+# PyPI distribution:
+# Video: https://www.youtube.com/watch?app=desktop&v=Kz6IlDCyOUY&t=430s
+# https://stackoverflow.com/questions/58753970/how-to-build-a-source-distribution-without-using-setup-py-file
+
+# CAVE: Make sure not to distribute submodule contents when updating PyPI version
