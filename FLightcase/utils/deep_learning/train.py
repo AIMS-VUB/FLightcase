@@ -41,7 +41,7 @@ def print_epoch_message(epoch, lr, train_loss, train_mae, val_loss, val_mae, bes
 
 
 def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion, scheduler, save_best_sd=False,
-          state_dict_output_dir_path=None):
+          state_dict_output_dir_path=None, patience_stop=None):
     """ Training function
 
     :param n_epochs: int, number of epochs
@@ -54,6 +54,7 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
     :param scheduler: torch lr scheduler
     :param save_best_sd: bool, save the best state dict?
     :param state_dict_output_dir_path: str, path to directory to write state dicts to
+    :param patience_stop: int, number of epochs without improvement after which training will be interrupted
     :return: str, path to state dict of the best model
     """
 
@@ -139,6 +140,12 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
 
         # Epoch print message
         print_epoch_message(epoch, lr, train_loss, train_mae, val_loss, val_mae, best_loss, n_worse_epochs)
+
+        # Stop after predefined number of bad epochs
+        if patience_stop is not None:
+            if n_worse_epochs == patience_stop:
+                print(f'Stopping early after {epoch+1} epochs')  # Epochs start counting from 0
+                break
 
     # Save best state dict if desired
     if save_best_sd:
