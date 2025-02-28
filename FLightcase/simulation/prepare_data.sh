@@ -1,7 +1,7 @@
 # Inspiration: https://github.com/OpenMRBenelux/openmr2021-dataviz-workshop/blob/main/binder/postBuild
 # Note: please make sure to create a Conda environment and to activate it before running this bash script
 # - conda env create --file environment.yml
-# - conda activate FLightcase_simulation
+# - conda activate FLightcase_sim_data_prep
 
 # Get script directory path of this file and cd
 # From: https://medium.com/@forest.dewberry/bash-from-within-a-script-refer-to-the-scripts-parent-directory-2eb10fab5b13
