@@ -17,7 +17,7 @@ def create_loss_figure(results_dir_path, fig_width):
     best_model_round = None
     for file in os.listdir(results_dir_path):
         if file.endswith("test_results.csv"):
-            client = file.split('_')[0]
+            client = file.replace('_test_results.csv', '')
             clients.append(client)
         elif file == 'final_model.txt':
             with open(os.path.join(results_dir_path, file), 'r') as file:
