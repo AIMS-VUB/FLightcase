@@ -167,13 +167,13 @@ def server(settings_path):
     client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'test_results', '.csv')
     calculate_overall_test_mae(client_info_dict, workspace_path_server, save=True)
 
-    # Clean up workspace
-    print('Cleaning up workspace...')
-    clean_up_workspace(workspace_path_server, who='server')
-
     # Print and save total FL duration
     fl_stop_time = dt.datetime.now()
     fl_duration_print_save(fl_start_time, fl_stop_time, workspace_path_server)
+
+    # Clean up workspace
+    print('Cleaning up workspace...')
+    clean_up_workspace(workspace_path_server, who='server')
 
 
 if __name__ == "__main__":
