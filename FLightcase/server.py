@@ -91,6 +91,9 @@ def server(settings_path):
     best_model_path = None      # Best model path with lowest avg validation loss
     avg_val_loss_clients = []   # Average validation loss across clients
 
+    # Initialise string to log client models in aggregation per round
+    aggregation_samples_log = ''
+
     # Start federated learning
     for fl_round in range(1, n_rounds + 1):  # Start counting from 1
         # Add round key to fill in client_info_dict
@@ -108,9 +111,13 @@ def server(settings_path):
         print('==> Combining local model weights and saving...')
         if n_clients_set is not None:
             client_info_dict_sample = get_n_random_pairs_from_dict(client_info_dict, n_clients_set, fl_round)
-            print(f'    ==> Clients in sample (random seed = {fl_round}): {list(client_info_dict_sample.keys())}')
+            log_txt = (f'    ==> Clients in sample (round = {fl_round}, random seed = {fl_round}):'
+                       f'{list(client_info_dict_sample.keys())}')
         else:
             client_info_dict_sample = client_info_dict
+            log_txt = f'    ==> All clients in sample (round = {fl_round})'
+        print(log_txt)
+        aggregation_samples_log += f'{log_txt}\n'
         new_global_state_dict = weighted_avg_local_models(client_info_dict_sample, fl_round)
         model_path = os.path.join(workspace_path_server, f'global_model_round_{fl_round}.pt')  # Overwrite model_path
         torch.save(new_global_state_dict, model_path)
@@ -166,6 +173,10 @@ def server(settings_path):
     print('==> Calculate overall test MAE...')
     client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'test_results', '.csv')
     calculate_overall_test_mae(client_info_dict, workspace_path_server, save=True)
+
+    # Save client sample log
+    with open(os.path.join(workspace_path_server, 'aggregation_samples.txt'), 'w') as samples_log:
+        samples_log.write(aggregation_samples_log)
 
     # Print and save total FL duration
     fl_stop_time = dt.datetime.now()

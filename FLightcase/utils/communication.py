@@ -261,7 +261,7 @@ def clean_up_workspace(workspace_dir_path, who):
                 dest_file_path = os.path.join(date_time_folder_path, 'data', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
             # Log files
-            elif file == 'FL_duration.txt':
+            elif file in ['FL_duration.txt', 'aggregation_samples.txt']:
                 dest_file_path = os.path.join(date_time_folder_path, 'log', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
             # State dicts
