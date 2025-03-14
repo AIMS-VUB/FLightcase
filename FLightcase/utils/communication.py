@@ -44,22 +44,31 @@ def send_file(remote_ip_address, username, password, sender_file_path, workspace
     :param workspace_path_sender: str, path to sender workspace
     :param workspace_path_receiver: str, path to receiver workspace
     """
-    # Create ssh and scp client
-    # Source to fix issue "scp.SCPException: Timeout waiting for scp response":
-    # ==> https://github.com/ktbyers/netmiko/issues/1254
-    ssh = createSSHClient(remote_ip_address, 22, username, password)
-    scp = SCPClient(ssh.get_transport(), socket_timeout=60)
 
-    # Share model with receiver
+    # Define paths
     receiver_file_path = sender_file_path.replace(workspace_path_sender, workspace_path_receiver)
-    scp.put(sender_file_path, remote_path=receiver_file_path)
-
-    # Share txt file with client that marks the end of the file transfer
     sender_txt_file_path = sender_file_path.replace(os.path.splitext(sender_file_path)[1], '_transfer_completed.txt')
     receiver_txt_file_path = sender_txt_file_path.replace(workspace_path_sender, workspace_path_receiver)
+
+    # Prepare the txt file that marks the end of the file transfer
     with open(sender_txt_file_path, 'w') as file:
         file.write(f'The following file was succesfully transferred: {os.path.basename(sender_file_path)}')
-    scp.put(sender_txt_file_path, receiver_txt_file_path)
+
+    # Use "cp" command if local simulation
+    # Note: Due to persisting Exception when running locally on Mac:
+    # ==> "SSHException: Error reading SSH protocol banner"
+    if remote_ip_address == '127.0.0.1':
+        os.system(f'cp {sender_file_path} {receiver_file_path}')            # Send info to receiver
+        os.system(f'cp {sender_txt_file_path} {receiver_txt_file_path}')    # Completion marker
+    else:
+        # Create ssh and scp client
+        # Source to fix issue "scp.SCPException: Timeout waiting for scp response":
+        # ==> https://github.com/ktbyers/netmiko/issues/1254
+        ssh = createSSHClient(remote_ip_address, 22, username, password)
+        scp = SCPClient(ssh.get_transport(), socket_timeout=60)
+
+        scp.put(sender_file_path, remote_path=receiver_file_path)           # Send info to receiver
+        scp.put(sender_txt_file_path, receiver_txt_file_path)               # Completion marker
 
 
 def wait_for_file(file_path, stop_with_stop_file = False):
@@ -206,70 +215,72 @@ def clean_up_workspace(workspace_dir_path, who):
     if os.path.exists(pycache_path):
         os.system(f'rm -r {pycache_path}')
 
+    # Create unique experiment folder (date and time)
+    date_time_folder_name = f'{str(dt.datetime.now().strftime("%Y-%m-%d_%Hh%Mm%Ss"))}'
+    date_time_folder_path = os.path.join(workspace_dir_path, date_time_folder_name)
+    if not os.path.exists(date_time_folder_path):
+        os.mkdir(date_time_folder_path)
+
     # Create subdirectories per category
     subdirs = ['state_dicts', 'results', 'data', 'settings']
     if who == 'server':
         subdirs.remove('data')
+        subdirs.append('log')
     for subdir in subdirs:
-        subdir_path = os.path.join(workspace_dir_path, subdir)
+        subdir_path = os.path.join(date_time_folder_path, subdir)
         if not os.path.exists(subdir_path):
             os.mkdir(subdir_path)
 
-    # Move files to subdirectories
+    # Move contents of workspace directory to subdirectories
+    # Note: exceptions are FL plan, FL settings and architecture.
+    # ==> Keep in server parent folder for ease of running more experiments
     for root, dirs, files in os.walk(workspace_dir_path):
+        # Do not process elements already in experiment folder
+        if experiment_folder_in_path(root):
+            continue
+
         for file in files:
             src_file_path = os.path.join(root, file)
             # Result files
             if (any(file.endswith(ext) for ext in ['.png', '.csv'])
                     or file in ['overall_test_mae.txt', 'final_model.txt']):
-                dest_file_path = os.path.join(root, 'results', file)
+                dest_file_path = os.path.join(date_time_folder_path, 'results', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
             # Settings files
-            elif any(file.endswith(ext) for ext in ['.json', 'ws_path.txt', 'dataset_size.txt', '.py']):
-                dest_file_path = os.path.join(root, 'settings', file)
-                if file in ['architecture.py', 'FL_plan.json', f'FL_settings_{who}.json']:
+            elif any(file.endswith(ext) for ext in ['.json', 'ws_path.txt', 'dataset_size.txt', '.py',
+                                                    'stop_training.txt']):
+                dest_file_path = os.path.join(date_time_folder_path, 'settings', file)
+                if file == f'FL_settings_{who}.json':
+                    os.system(f'cp {src_file_path} {dest_file_path}')
+                elif file in ['architecture.py', 'FL_plan.json'] and who == 'server':
                     os.system(f'cp {src_file_path} {dest_file_path}')
                 else:
                     os.system(f'mv {src_file_path} {dest_file_path}')
             # Data files
             elif file.endswith('tsv'):
-                dest_file_path = os.path.join(root, 'data', file)
+                dest_file_path = os.path.join(date_time_folder_path, 'data', file)
+                os.system(f'mv {src_file_path} {dest_file_path}')
+            # Log files
+            elif file in ['FL_duration.txt', 'aggregation_samples.txt']:
+                dest_file_path = os.path.join(date_time_folder_path, 'log', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
             # State dicts
             elif file.endswith('.pt'):
-                dest_file_path = os.path.join(root, 'state_dicts', file)
+                dest_file_path = os.path.join(date_time_folder_path, 'state_dicts', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
-            else:
-                raise ValueError(f'No handler specified for file = {file}')
         break
 
-    # Move contents of workspace directory to data and time folder
-    # Note: exception is FL plan and architecture. Keep in server parent folder for ease of running more experiments
-    date_time_folder_name = f'{str(dt.datetime.now().strftime("%Y-%m-%d_%Hh%Mm%Ss"))}'
-    date_time_folder_path = os.path.join(workspace_dir_path, date_time_folder_name)
-    if not os.path.exists(date_time_folder_path):
-        os.mkdir(date_time_folder_path)
-    for element in os.listdir(workspace_dir_path):
-        src_file_path = os.path.join(workspace_dir_path, element)
-        dest_file_path = os.path.join(workspace_dir_path, date_time_folder_name, element)
-        if is_experiment_folder(element):
-            continue
-        elif element in ['architecture.py', 'FL_plan.json'] and who == 'server':
-            continue
-        elif element == f'FL_settings_{who}.json':
-            continue
-        else:
-            os.system(f'mv {src_file_path} {dest_file_path}')
 
-
-def is_experiment_folder(dir_name):
+def experiment_folder_in_path(path):
     """
     Check whether the directory has an experiment folder format
 
-    :param dir_name: str, directory name
+    :param path: str, path
     :return: bool
     """
-    return re.fullmatch('\A[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}h[0-9]{2}m[0-9]{2}s\Z', dir_name)
+
+    return sum([bool(re.fullmatch('\A[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}h[0-9]{2}m[0-9]{2}s\Z', i))
+               for i in path.split(os.sep)]) > 0
 
 
 def remove_transfer_completion_files(workspace_dir_path, print_tracking=False):

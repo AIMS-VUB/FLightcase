@@ -1,6 +1,6 @@
 # Inspiration: https://github.com/OpenMRBenelux/openmr2021-dataviz-workshop/blob/main/binder/environment.yml
 
-name: FLightcase_simulation
+name: FLightcase_sim_data_prep
 
 channels:
   - default
@@ -9,16 +9,12 @@ channels:
 dependencies:
   - python=3.11
   - pip=24.2
-  - git=2.45.2
-  - git-annex=10.20230626
-  - datalad=1.1.4
-  - datalad-installer=1.1.1
   - fsleyes=1.13.0
   - pip:
+      - awscli==1.37.7  # Installation problems with git-annex, therefore stepped away from downloading with datalad
       - monai==1.4.0
       - matplotlib==3.10.0
       - xlrd==1.2.0
-      - tqdm==4.62.3
       - HD-BET==2.0
       - pandas==2.2.3
       # Antspyx: Version number might be deleted as antspyx history often deleted in PyPI. Then try with latest version.

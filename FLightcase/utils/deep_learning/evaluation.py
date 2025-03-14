@@ -14,7 +14,7 @@ def evaluate(net, data_loader, criterion, device, eval_type, print_message=False
     :param data_loader: torch DataLoader
     :param criterion: torch.nn loss criterion. CAVE: use "sum" as reduction!
     :param device: torch.device, cpu or gpu
-    :param eval_type: str, choose from ["validation", "test"]
+    :param eval_type: str, choose from ["train", "validation", "test"]
     :param print_message: bool, print message?
     :return: validation/test loss, true label list, pred label list
     """

@@ -18,11 +18,11 @@ import warnings
 import numpy as np
 import pandas as pd
 import datetime as dt
-from utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
+from FLightcase.utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
                                        get_model_param_info, import_net_architecture, copy_net)
-from utils.communication import clean_up_workspace, send_to_all_clients, collect_client_info
-from utils.tracking import print_FL_plan
-from utils.results import update_avg_val_loss, calculate_overall_test_mae
+from FLightcase.utils.communication import clean_up_workspace, send_to_all_clients, collect_client_info
+from FLightcase.utils.tracking import print_FL_plan, create_overall_loss_df, fl_duration_print_save
+from FLightcase.utils.results import update_avg_val_loss, calculate_overall_test_mae
 
 # Filter deprecation warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -91,6 +91,9 @@ def server(settings_path):
     best_model_path = None      # Best model path with lowest avg validation loss
     avg_val_loss_clients = []   # Average validation loss across clients
 
+    # Initialise string to log client models in aggregation per round
+    aggregation_samples_log = ''
+
     # Start federated learning
     for fl_round in range(1, n_rounds + 1):  # Start counting from 1
         # Add round key to fill in client_info_dict
@@ -108,9 +111,13 @@ def server(settings_path):
         print('==> Combining local model weights and saving...')
         if n_clients_set is not None:
             client_info_dict_sample = get_n_random_pairs_from_dict(client_info_dict, n_clients_set, fl_round)
-            print(f'    ==> Clients in sample (random seed = {fl_round}): {list(client_info_dict_sample.keys())}')
+            log_txt = (f'    ==> Clients in sample (round = {fl_round}, random seed = {fl_round}):'
+                       f'{list(client_info_dict_sample.keys())}')
         else:
             client_info_dict_sample = client_info_dict
+            log_txt = f'    ==> All clients in sample (round = {fl_round})'
+        print(log_txt)
+        aggregation_samples_log += f'{log_txt}\n'
         new_global_state_dict = weighted_avg_local_models(client_info_dict_sample, fl_round)
         model_path = os.path.join(workspace_path_server, f'global_model_round_{fl_round}.pt')  # Overwrite model_path
         torch.save(new_global_state_dict, model_path)
@@ -143,7 +150,11 @@ def server(settings_path):
         round_stop_time = dt.datetime.now()
         round_duration = round_stop_time - round_start_time
         ETA = (round_stop_time + round_duration * (n_rounds - fl_round - 1)).strftime('%Y/%m/%d, %H:%M:%S')
-        print(f'Round time: {round_duration / 60} min || ETA: {ETA}')
+        print(f'Round time: {str(round_duration)} || ETA: {ETA}')
+
+    # Combine all train/val loss results across clients and rounds in one dataframe
+    overall_loss_df = create_overall_loss_df(workspace_path_server)
+    overall_loss_df.to_csv(os.path.join(workspace_path_server, 'overall_loss_df.csv'))
 
     # Create dataframe with average validation loss across clients
     avg_val_loss_df = pd.DataFrame({'avg_val_loss_clients': avg_val_loss_clients,
@@ -163,14 +174,17 @@ def server(settings_path):
     client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'test_results', '.csv')
     calculate_overall_test_mae(client_info_dict, workspace_path_server, save=True)
 
+    # Save client sample log
+    with open(os.path.join(workspace_path_server, 'aggregation_samples.txt'), 'w') as samples_log:
+        samples_log.write(aggregation_samples_log)
+
+    # Print and save total FL duration
+    fl_stop_time = dt.datetime.now()
+    fl_duration_print_save(fl_start_time, fl_stop_time, workspace_path_server)
+
     # Clean up workspace
     print('Cleaning up workspace...')
     clean_up_workspace(workspace_path_server, who='server')
-
-    # Print total FL duration
-    fl_stop_time = dt.datetime.now()
-    fl_duration = fl_stop_time - fl_start_time
-    print(f'Total federated learning duration: {fl_duration/3600} hrs')
 
 
 if __name__ == "__main__":

@@ -130,4 +130,5 @@ dmypy.json
 
 # Added
 .idea/
-simulation/inputs/
+FLightcase/simulation/inputs/
+.FLightcase_venv/

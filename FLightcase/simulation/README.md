@@ -2,7 +2,7 @@
 :construction::wrench: Under construction :wrench::construction:
 
 This subdirectory contains a local federated learning (FL) simulation using FLightcase, 
-fine-tuning an existing [brain age model](https://github.com/MIDIconsortium/BrainAge/blob/46800008b9ed79551988230f2f5470f8cf0a9ead/Models/T1/Skull_stripped/seed_60.pt) on healthy control MRI data from [OpenNeuro](https://openneuro.org/).
+fine-tuning a convolutional neural network (CNN) on healthy control MRI data from [OpenNeuro](https://openneuro.org/).
 The simulation consists of 1 server node and 3 client nodes, in analogy to the real-world example in [this preprint](https://www.medrxiv.org/content/10.1101/2023.04.22.23288741v1) [1].
 Each node is represented by a separate FL workspace, a separate directory.
 
@@ -11,6 +11,8 @@ Each node is represented by a separate FL workspace, a separate directory.
 | client_1    | [ds003083](https://openneuro.org/datasets/ds003083/versions/1.0.1) | 26         | 1                      |
 | client_2    | [ds000229](https://openneuro.org/datasets/ds000229/versions/00001) | 15         | 1                      |
 | client_3    | [ds005530](https://openneuro.org/datasets/ds005530/versions/1.0.8) | 18         | 1                      |
+
+Note: Due to a persistent SSHException during local simulation on Mac, for local simulation using 127.0.0.1 as IP address, "cp" is used instead of scp to copy files.
 
 ***
 
@@ -35,8 +37,8 @@ Note: Click [this link](https://git-scm.com/book/en/v2/Git-Tools-Submodules) for
 ### Download and preprocess the data
 The data will be available in an "inputs" folder within the "simulation" folder
 1. Navigate in the terminal to the "simulation" folder
-2. ```conda env create --file environment.yml``` (creates conda environment "FLightcase_simulation")
-3. ```conda activate FLightcase_simulation``` (activates "FLightcase_simulation" environment)
+2. ```conda env create --file environment.yml``` (creates conda environment "FLightcase_sim_data_prep")
+3. ```conda activate FLightcase_sim_data_prep``` (activates "FLightcase_sim_data_prep" environment)
 4. ```bash prepare_data.sh``` (downloads and preprocesses data (pipeline by Wood et al. 2022 [2]))
 5. ```conda deactivate``` (deactivates conda environment)
 
@@ -60,9 +62,14 @@ Note: automatically builds FLightcase. Only one virtual environment needs to be 
 ### Prepare workspaces
 For this, we refer to the eponymous header in the README in the parent directory.
 - We recommend to create an "FL_simulation" parent folder, and to create the four workspace directories in this folder.
+- The AdaptedSFCN network in the template "architecture.py" file is used for this simulation.
+  - Note: This is an adapted version of the Simple Fully Convolutional Network (SFCN) architecture by Dr. Han Peng and colleagues
+  - Adapted from the ["sfcn.py" file](https://github.com/ha-ha-ha-han/UKBiobank_deep_pretrain/blob/master/dp_model/model_files/sfcn.py) in the [UKBiobank_deep_pretrain GitHub repository](https://github.com/ha-ha-ha-han/UKBiobank_deep_pretrain)
+  - Link to paper: click [here](https://www.sciencedirect.com/science/article/pii/S1361841520302358)
 - When filling in the settings JSON files:
   - The names listed in the table above can be used.
   - As this is a local simulation, please choose "127.0.0.1" as the ip address for each node (server and clients).
+  - As all data sets did not specify a session, remove the "session" key from the settings JSON per client
 
 ***
 

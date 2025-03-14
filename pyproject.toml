@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "FLightcase"
-version = "0.1.2"
+version = "0.1.5"
 description = "FLightcase toolbox for Federated Learning"
 readme = "README.md"
 dependencies = [
@@ -40,8 +40,27 @@ text = "CC BY-NC-ND 4.0"
 Homepage = "https://github.com/AIMS-VUB/FLightcase/"
 
 [project.scripts]
-FLightcase = "cli:cli"
+FLightcase = "FLightcase.__main__:cli"
 
-[tool.setuptools]
-packages = []
-include-package-data = false
+# Source for optimal package structure and contents of pyproject.toml:
+# - https://stackoverflow.com/questions/50585246/pip-install-creates-only-the-dist-info-not-the-package
+# - https://medium.com/@kavyamalla/build-and-install-python-package-with-multiple-directories-referencing-one-another-f27cdfe667e2
+# - https://stackoverflow.com/questions/75387904/how-to-exclude-tests-folder-from-the-wheel-of-a-pyproject-toml-managed-lib
+# - https://github.com/pauldmccarthy/fsleyes/blob/main/pyproject.toml
+
+[tool.setuptools.packages.find]
+include = ['FLightcase*']
+exclude = ['FLightcase.simulation*']
+
+# https://stackoverflow.com/questions/76886313/how-to-include-json-files-in-a-python-package-using-a-pyproject-toml
+# https://stackoverflow.com/questions/76485082/package-and-find-non-python-files-in-a-python-package
+[tool.setuptools.package-data]
+'*' = ['*.*']  # To include other files than .py files
+
+
+####################################################################
+# PyPI distribution:
+# Video: https://www.youtube.com/watch?app=desktop&v=Kz6IlDCyOUY&t=430s
+# https://stackoverflow.com/questions/58753970/how-to-build-a-source-distribution-without-using-setup-py-file
+
+# CAVE: Make sure not to distribute submodule contents when updating PyPI version
