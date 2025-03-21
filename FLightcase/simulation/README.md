@@ -88,6 +88,12 @@ Enjoy the show! :woman_dancing::man_dancing:
 
 ***
 
+## Create loss figure (Optional)
+If desired, a loss figure can be created by running the following command (assuming the terminal is in the "FLightcase" parent folder of this GitHub repository):
+```python3 FLightcase/utils/toolbox_manuscript/create_loss_figure.py --results_dir_path /path/to/server/workspace/YYYY-MM-DD_XXhXXmXXs/results/```
+
+***
+
 ## References
 [1] Denissen, S., Grothe, M., Vaneckova, M., Uher, T., Laton, J., Kudrna, M., ... & Nagels, G. (2023). Transfer learning on structural brain age models to decode cognition in MS: a federated learning approach. medRxiv, 2023-04.
 
