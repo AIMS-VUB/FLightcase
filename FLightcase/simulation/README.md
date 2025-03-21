@@ -27,6 +27,9 @@ I would recommend installing miniconda. Click [this link](https://docs.conda.io/
 ### Clone this GitHub repository
 ```git clone https://github.com/AIMS-VUB/FLightcase.git```
 
+### Change directory to the GitHub repository
+```cd FLightcase```
+
 ### Get submodule contents
 Get the contents of the BrainAge submodule ([MIDIconsortium "BrainAge" GitHub repo](https://github.com/MIDIconsortium/BrainAge)).
 1. ```git submodule init``` (initialise local configuration file)
@@ -36,11 +39,12 @@ Note: Click [this link](https://git-scm.com/book/en/v2/Git-Tools-Submodules) for
 
 ### Download and preprocess the data
 The data will be available in an "inputs" folder within the "simulation" folder
-1. Navigate in the terminal to the "simulation" folder
+1. Navigate in the terminal to the "simulation" subfolder: ```cd FLightcase/simulation/```
 2. ```conda env create --file environment.yml``` (creates conda environment "FLightcase_sim_data_prep")
 3. ```conda activate FLightcase_sim_data_prep``` (activates "FLightcase_sim_data_prep" environment)
 4. ```bash prepare_data.sh``` (downloads and preprocesses data (pipeline by Wood et al. 2022 [2]))
 5. ```conda deactivate``` (deactivates conda environment)
+6. Return to parent "FLightcase" directory: ```cd ../..```
 
 #### Note:
 On 9 January 2025, we obtained permission by the authors of the image preprocessing pipeline [2] to include an adapted version of the [pre_process.py file](https://github.com/MIDIconsortium/BrainAge/blob/main/pre_process.py) from their [GitHub repository](https://github.com/MIDIconsortium/BrainAge) (also included in this simulation as submodule) in ours.
@@ -54,10 +58,12 @@ The adaptations:
   - removed the step taking the first element of the output
 
 ### Prepare virtual environment
-Note: automatically builds FLightcase. Only one virtual environment needs to be created, which can be used by all virtual nodes.
+Note: only one virtual environment needs to be created, which can be used by all virtual nodes.
 1. ```python3 -m venv .FLightcase_venv```
 2. ```source .FLightcase_venv/bin/activate```
-3. ```pip3 install -r requirements.txt```
+3. Install FLightcase. There are 2 options:
+   - Building FLightcase from this GitHub repository: ```pip3 install -r requirements.txt```
+   - Downloading and installing via [PyPI](https://pypi.org/project/FLightcase/): ```pip3 install FLightcase==0.1.5``` (Adapt version number if desired)
 
 ### Prepare workspaces
 For this, we refer to the eponymous header in the README in the parent directory.
@@ -79,6 +85,12 @@ Open 4 terminals, one for the server, and 3 for the clients. Activate the virtua
 2. On the server node, run ```FLightcase run-server --settings_path /path/to/server_node_settings.json```
 
 Enjoy the show! :woman_dancing::man_dancing:
+
+***
+
+## Create loss figure (Optional)
+If desired, a loss figure can be created by running the following command (assuming the terminal is in the "FLightcase" parent folder of this GitHub repository):
+```python3 FLightcase/utils/toolbox_manuscript/create_loss_figure.py --results_dir_path /path/to/server/workspace/YYYY-MM-DD_XXhXXmXXs/results/```
 
 ***
 
