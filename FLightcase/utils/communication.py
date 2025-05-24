@@ -7,12 +7,56 @@ import re
 import sys
 import pathlib
 import paramiko
+import requests
 import pandas as pd
 import datetime as dt
 from scp import SCPClient
 # Add path to parent dir of this Python file: https://stackoverflow.com/questions/3430372/
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 from deep_learning.model import get_weights
+
+
+def file_present_in_moderator_ws(url, username, password):
+    # Send credentials in "params" attribute instead of "auth", as it did not work outside local environment
+    # "params" parsed with ".args" at server side
+    response = requests.get(url, params={'username': username, 'password': password})
+    return response.text != 'This file is not yet present.'
+
+
+def download_file(url, download_location, username, password):
+    """
+    Adapted from: https://realpython.com/python-download-file-from-url/
+    Action: downloads.
+    returns: Boolean (downloaded?)
+    """
+
+    response = requests.get(url, params={'username': username, 'password': password})
+    if response.text == 'Nope.' or response.text == 'This file is not yet present.':
+        return False
+    if "content-disposition" in response.headers:
+        content_disposition = response.headers["content-disposition"]
+        filename = content_disposition.split("filename=")[1]
+    else:
+        filename = url.split("/")[-1]
+
+    # Define file path
+    # Split filename source: https://stackoverflow.com/questions/541390/extracting-extension-from-filename
+    file_path = os.path.join(download_location, filename)
+    file_path_no_extension, ext = os.path.splitext(file_path)
+
+    # Do not overwrite file if already exists. Add copy number.
+    copy_nr = 1
+    while os.path.exists(file_path):
+        file_path = f'{file_path_no_extension} ({copy_nr}){ext}'
+        copy_nr += 1
+
+    content = response.content
+    if b'404 Not Found' in content:
+        return False
+    else:
+        with open(file_path, mode="wb") as file:
+            file.write(response.content)
+        return True
 
 
 def createSSHClient(server, port, user, password):
@@ -71,45 +115,44 @@ def send_file(remote_ip_address, username, password, sender_file_path, workspace
         scp.put(sender_txt_file_path, receiver_txt_file_path)               # Completion marker
 
 
-def wait_for_file(file_path, stop_with_stop_file = False):
+def wait_for_file(file_path, moderator_download_folder_url, download_username, download_password, stop_with_stop_file=False):
     """ This function waits for a file path to exist
 
     :param file_path: str, path to file
+    :param moderator_download_folder_url: str, path to download folder of the moderator
+    :param download_username: str, remote username
+    :param download_password: str, password corresponding to remote username
     :param stop_with_stop_file: bool, stop when "stop_training.txt" is present in the same directory?
     :return: bool, is a stop file present? Indicates stopping FL.
     """
 
-    stop_file_present = False
-    while not os.path.exists(file_path):
-        if os.path.exists(os.path.join(os.path.dirname(file_path), 'stop_training.txt')):
-            if stop_with_stop_file:
-                stop_file_present = True
-                break
-            else:
-                pass
-        else:
-            pass
-    return stop_file_present
+    # Wait until the SCP from sender to moderator is complete (check the url)
+    suffix = pathlib.Path(file_path).suffix
+    file = os.path.basename(file_path)
+    transfer_completed_url = os.path.join(moderator_download_folder_url, file.replace(suffix, '_transfer_completed.txt'))
+    print(transfer_completed_url)
+    while not file_present_in_moderator_ws(transfer_completed_url, download_username, download_password):
+        pass
+    print(f'{file} successfully received at moderator')
+
+    # Download the target file.
+    # Note: Here, file completion does not need to be flagged as the path only exists after download
+    file_url = os.path.join(moderator_download_folder_url, os.path.basename(file_path))
+    workspace_receiver = os.path.dirname(file_path)
+    while not download_file(file_url, workspace_receiver, download_username, download_password):
+        pass
+    print(f'{file} successfully downloaded from moderator')
+
+    # Stop if a stop file is present
+    stop_training = False
+    if os.path.exists(os.path.join(workspace_receiver, 'stop_training.txt')) and stop_with_stop_file:
+        stop_training = True
+
+    return stop_training
 
 
-def send_to_all_clients(client_info_dict, path_to_file, ws_path_server):
-    """
-    This function sends a file to all clients
-
-    :param client_info_dict: dict, k: client name, v: client information dict
-    """
-    file = os.path.basename(path_to_file)
-    print(f'==> Sending {file} to all clients...')
-    for client_name in client_info_dict.keys():
-        print(f'    ==> Sending to {client_name} ...')
-        ip_address = client_info_dict[client_name]['ip_address']
-        username = client_info_dict[client_name]['username']
-        password = client_info_dict[client_name]['password']
-        workspace_path = client_info_dict[client_name]['ws_path']
-        send_file(ip_address, username, password, path_to_file, ws_path_server, workspace_path)
-
-
-def collect_client_info(client_info_dict, workspace_path_server, info_type, file_ext, fl_round=None, net_arch=None):
+def collect_client_info(client_info_dict, workspace_path_server, info_type, file_ext, moderator_download_folder_url,
+                        download_username, download_password, fl_round=None, net_arch=None):
     """
     Collect workspace paths or dataset size from clients
 
@@ -117,6 +160,9 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
     :param workspace_path_server: str, absolute path to server workspace
     :param info_type: str, which info to expect. Currently, supports 'dataset_size' or 'workspace_path'
     :param file_ext: str, file extension
+    :param moderator_download_folder_url: str, URL where to download files from moderator
+    :param download_username: str, remote username
+    :param download_password: str, password corresponding to remote username
     :param fl_round: int, federated learning round
     :param net_arch: torch model, network architecture. Will be updated with received state dict (.pt)
     :return: dict, enriched client information dict
@@ -134,10 +180,10 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
                                             f'{client_name}_round_{fl_round}_{info_type}{file_ext}')
         else:
             client_info_path = os.path.join(workspace_path_server, f'{client_name}_{info_type}{file_ext}')
-        suffix = pathlib.Path(client_info_path).suffix
-        wait_for_file(client_info_path.replace(suffix, '_transfer_completed.txt'))
+        wait_for_file(client_info_path, moderator_download_folder_url, download_username, download_password)
 
         # Define action based on file type
+        suffix = pathlib.Path(client_info_path).suffix
         if suffix == '.txt':
             with open(client_info_path, 'r') as file:
                 info = file.read()
@@ -159,18 +205,18 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
     return client_info_dict
 
 
-def send_client_info_to_server(client_n, client_ws_path, client_name, server_ip_address, server_username,
-                               server_password, server_ws_path):
+def send_client_info_to_moderator(client_n, client_ws_path, client_name, moderator_ip_address, moderator_username,
+                                  moderator_password, moderator_ws_path):
     """
-    Send client information  to server
+    Send client information  to moderator
 
     :client_n: str, client dataset size
     :client_ws_path: str, path to client workspace
     :client_name: str, client name
-    :server_ip_address: str, server ip address
-    :server_username: str, server username
-    :server_password: str, server password
-    :server_ws_path: str, server workspace path
+    :moderator_ip_address: str, server ip address
+    :moderator_username: str, server username
+    :moderator_password: str, server password
+    :moderator_ws_path: str, server workspace path
     """
     for tag, info in zip(['dataset_size', 'ws_path'], [client_n, client_ws_path]):
         print(f'==> Send {tag} to server...')
@@ -178,28 +224,28 @@ def send_client_info_to_server(client_n, client_ws_path, client_name, server_ip_
         with open(info_txt_path, 'w') as file:
             file.write(str(info))
 
-        send_file(server_ip_address, server_username, server_password, info_txt_path, client_ws_path,
-                  server_ws_path)
+        send_file(moderator_ip_address, moderator_username, moderator_password, info_txt_path, client_ws_path,
+                  moderator_ws_path)
 
 
-def send_test_df_to_server(test_df_for_server, client_name, workspace_path_client, server_username,
-                           server_password, server_ip_address, workspace_path_server):
+def send_test_df_to_moderator(test_df_for_server, client_name, workspace_path_client, moderator_username,
+                              moderator_password, moderator_ip_address, workspace_path_moderator):
     """
     Send test dataframe to server
 
     :client_name: str, client name
     :workspace_path_client: str, path to client workspace
-    :server_username: str, server username
-    :server_password: str, server password
-    :server_ip_address: str, server ip address
-    :workspace_path_server: str, server workspace path
+    :moderator_username: str, moderator username
+    :moderator_password: str, moderator password
+    :moderator_ip_address: str, moderator ip address
+    :workspace_path_moderator: str, moderator workspace path
     """
     # Send results to server
     print('==> Sending test results to server...')
     test_df_path = os.path.join(workspace_path_client, f'{client_name}_test_results.csv')
     test_df_for_server.to_csv(test_df_path, index=False)
-    send_file(server_ip_address, server_username, server_password, test_df_path, workspace_path_client,
-              workspace_path_server)
+    send_file(moderator_ip_address, moderator_username, moderator_password, test_df_path, workspace_path_client,
+              workspace_path_moderator)
 
 
 def clean_up_workspace(workspace_dir_path, who):
