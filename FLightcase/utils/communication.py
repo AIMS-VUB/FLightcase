@@ -98,7 +98,6 @@ def wait_for_file(file_path, moderator_download_folder_url, download_username, d
     workspace_receiver = os.path.dirname(file_path)
     while not download_file(file_url, workspace_receiver, download_username, download_password):
         pass
-        print(workspace_receiver)
     print(f'{file} successfully downloaded from moderator')
 
     # Stop if a stop file is present
