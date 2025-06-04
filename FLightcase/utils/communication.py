@@ -6,11 +6,9 @@ import os
 import re
 import sys
 import pathlib
-import paramiko
 import requests
 import pandas as pd
 import datetime as dt
-from scp import SCPClient
 # Add path to parent dir of this Python file: https://stackoverflow.com/questions/3430372/
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 from deep_learning.model import get_weights
@@ -59,60 +57,16 @@ def download_file(url, download_location, username, password):
         return True
 
 
-def createSSHClient(server, port, user, password):
+def upload_file(url_upload, local_path, username, password):
     """
-    Create an SSH client to connect to server.
-    Note: terminology might be confusing as also used to connect from FL server to FL client
-    Function source: https://stackoverflow.com/questions/250283/how-to-scp-in-python
-
-    :param server: str, remote ip address (denoted as server)
-    :param port: int, port
-    :param user: str, remote username
-    :param password: str, password corresponding to remote username
-    :return: ssh client
+    Sources:
+    - https://stackoverflow.com/questions/68477/send-file-using-post-from-a-python-script
+    - https://proxiesapi.com/articles/a-beginner-s-guide-to-uploading-files-with-python-requests
     """
-    client = paramiko.SSHClient()
-    client.load_system_host_keys()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(server, port, user, password)
-    return client
-
-
-def send_file(remote_ip_address, username, password, sender_file_path, workspace_path_sender, workspace_path_receiver):
-    """ Send file to remote
-
-    :param remote_ip_address: str, remote ip address
-    :param username: str, username of remote
-    :param password: str, password of remote
-    :param sender_file_path: str, path to local file to share
-    :param workspace_path_sender: str, path to sender workspace
-    :param workspace_path_receiver: str, path to receiver workspace
-    """
-
-    # Define paths
-    receiver_file_path = sender_file_path.replace(workspace_path_sender, workspace_path_receiver)
-    sender_txt_file_path = sender_file_path.replace(os.path.splitext(sender_file_path)[1], '_transfer_completed.txt')
-    receiver_txt_file_path = sender_txt_file_path.replace(workspace_path_sender, workspace_path_receiver)
-
-    # Prepare the txt file that marks the end of the file transfer
-    with open(sender_txt_file_path, 'w') as file:
-        file.write(f'The following file was succesfully transferred: {os.path.basename(sender_file_path)}')
-
-    # Use "cp" command if local simulation
-    # Note: Due to persisting Exception when running locally on Mac:
-    # ==> "SSHException: Error reading SSH protocol banner"
-    if remote_ip_address == '127.0.0.1':
-        os.system(f'cp {sender_file_path} {receiver_file_path}')            # Send info to receiver
-        os.system(f'cp {sender_txt_file_path} {receiver_txt_file_path}')    # Completion marker
-    else:
-        # Create ssh and scp client
-        # Source to fix issue "scp.SCPException: Timeout waiting for scp response":
-        # ==> https://github.com/ktbyers/netmiko/issues/1254
-        ssh = createSSHClient(remote_ip_address, 22, username, password)
-        scp = SCPClient(ssh.get_transport(), socket_timeout=60)
-
-        scp.put(sender_file_path, remote_path=receiver_file_path)           # Send info to receiver
-        scp.put(sender_txt_file_path, receiver_txt_file_path)               # Completion marker
+    with open(local_path, 'rb') as f:
+        file_bytes = f.read()
+    files = {'file': (os.path.basename(local_path), file_bytes)}
+    requests.post(os.path.join(url_upload, os.path.basename(local_path)), files=files, auth=(username, password))
 
 
 def wait_for_file(file_path, moderator_download_folder_url, download_username, download_password, stop_with_stop_file=False):
@@ -126,21 +80,14 @@ def wait_for_file(file_path, moderator_download_folder_url, download_username, d
     :return: bool, is a stop file present? Indicates stopping FL.
     """
 
-    # Wait until the SCP from sender to moderator is complete (check the url)
-    suffix = pathlib.Path(file_path).suffix
-    file = os.path.basename(file_path)
-    transfer_completed_url = os.path.join(moderator_download_folder_url, file.replace(suffix, '_transfer_completed.txt'))
-    print(transfer_completed_url)
-    while not file_present_in_moderator_ws(transfer_completed_url, download_username, download_password):
-        pass
-    print(f'{file} successfully received at moderator')
-
     # Download the target file.
     # Note: Here, file completion does not need to be flagged as the path only exists after download
-    file_url = os.path.join(moderator_download_folder_url, os.path.basename(file_path))
+    file = os.path.basename(file_path)
+    file_url = os.path.join(moderator_download_folder_url, file)
     workspace_receiver = os.path.dirname(file_path)
     while not download_file(file_url, workspace_receiver, download_username, download_password):
         pass
+        print(workspace_receiver)
     print(f'{file} successfully downloaded from moderator')
 
     # Stop if a stop file is present
@@ -205,18 +152,13 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
     return client_info_dict
 
 
-def send_client_info_to_moderator(client_n, client_ws_path, client_name, moderator_ip_address, moderator_username,
-                                  moderator_password, moderator_ws_path):
+def send_client_info_to_moderator(client_n, client_ws_path, client_name, url_upload, upload_username, upload_password):
     """
     Send client information  to moderator
 
     :client_n: str, client dataset size
     :client_ws_path: str, path to client workspace
     :client_name: str, client name
-    :moderator_ip_address: str, server ip address
-    :moderator_username: str, server username
-    :moderator_password: str, server password
-    :moderator_ws_path: str, server workspace path
     """
     for tag, info in zip(['dataset_size', 'ws_path'], [client_n, client_ws_path]):
         print(f'==> Send {tag} to server...')
@@ -224,12 +166,10 @@ def send_client_info_to_moderator(client_n, client_ws_path, client_name, moderat
         with open(info_txt_path, 'w') as file:
             file.write(str(info))
 
-        send_file(moderator_ip_address, moderator_username, moderator_password, info_txt_path, client_ws_path,
-                  moderator_ws_path)
+        upload_file(url_upload, info_txt_path, upload_username, upload_password)
 
 
-def send_test_df_to_moderator(test_df_for_server, client_name, workspace_path_client, moderator_username,
-                              moderator_password, moderator_ip_address, workspace_path_moderator):
+def send_test_df_to_moderator(test_df_for_server, client_name, workspace_path_client, url_upload, upload_username, upload_password):
     """
     Send test dataframe to server
 
@@ -244,8 +184,7 @@ def send_test_df_to_moderator(test_df_for_server, client_name, workspace_path_cl
     print('==> Sending test results to server...')
     test_df_path = os.path.join(workspace_path_client, f'{client_name}_test_results.csv')
     test_df_for_server.to_csv(test_df_path, index=False)
-    send_file(moderator_ip_address, moderator_username, moderator_password, test_df_path, workspace_path_client,
-              workspace_path_moderator)
+    upload_file(url_upload, test_df_path, upload_username, upload_password)
 
 
 def clean_up_workspace(workspace_dir_path, who):
@@ -255,8 +194,7 @@ def clean_up_workspace(workspace_dir_path, who):
     :param workspace_dir_path: str, path to workspace directory
     :param who: str, "server" or "client". Defines whether client or server workspace.
     """
-    # Remove _transfer_completed.txt files and __pycache__
-    remove_transfer_completion_files(workspace_dir_path)
+    # Remove __pycache__
     pycache_path = os.path.join(workspace_dir_path, '__pycache__')
     if os.path.exists(pycache_path):
         os.system(f'rm -r {pycache_path}')
@@ -327,18 +265,3 @@ def experiment_folder_in_path(path):
 
     return sum([bool(re.fullmatch('\A[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}h[0-9]{2}m[0-9]{2}s\Z', i))
                for i in path.split(os.sep)]) > 0
-
-
-def remove_transfer_completion_files(workspace_dir_path, print_tracking=False):
-    """
-    Remove files with '_transfer_completed.txt' suffix
-
-    :param workspace_dir_path: str, path to workspace directory
-    :param print_tracking: bool, track which files are removed?
-    """
-    for root, dirs, files in os.walk(workspace_dir_path):
-        for file in files:
-            if file.endswith('_transfer_completed.txt'):
-                if print_tracking:
-                    print(f'removing: {os.path.join(root, file)}')
-                os.remove(os.path.join(root, file))
