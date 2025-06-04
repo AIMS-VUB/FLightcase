@@ -77,7 +77,7 @@ def upload_file(url_upload, local_path, username, password):
     files = {'file': (os.path.basename(local_path), file_bytes)}
     response = requests.post(os.path.join(url_upload, os.path.basename(local_path)), files=files, params={'username': username, 'password': password})
     if response.text != 'Upload successful!':
-        raise ValueError(f'Failed to upload file {os.path.basename(local_path)}.')
+        raise ValueError(f'Failed to upload file {os.path.basename(local_path)}. Message by server: {response.text}')
 
 
 def wait_for_file(file_path, moderator_download_folder_url, download_username, download_password, stop_with_stop_file=False):
