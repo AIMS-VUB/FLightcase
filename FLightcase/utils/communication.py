@@ -75,7 +75,7 @@ def upload_file(url_upload, local_path, username, password):
     with open(local_path, 'rb') as f:
         file_bytes = f.read()
     files = {'file': (os.path.basename(local_path), file_bytes)}
-    requests.post(os.path.join(url_upload, os.path.basename(local_path)), files=files, auth=(username, password))
+    requests.post(os.path.join(url_upload, os.path.basename(local_path)), files=files, params={'username': username, 'password': password})
 
 
 def wait_for_file(file_path, moderator_download_folder_url, download_username, download_password, stop_with_stop_file=False):
