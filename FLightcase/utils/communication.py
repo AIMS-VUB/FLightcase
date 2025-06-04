@@ -29,8 +29,17 @@ def download_file(url, download_location, username, password):
     """
 
     response = requests.get(url, params={'username': username, 'password': password})
-    if response.text == 'Nope.' or response.text == 'This file is not yet present.':  # TODO adapt
+
+    # Check whether to proceed or not
+    if response.status_code != 200:
         return False
+    elif response.text in ['The downloader is not recognized.',
+                           'The downloader is recognized, but the password is incorrect.',
+                           'The downloader did not provide credentials.',
+                           'This file is not yet present.']:
+        return False
+
+    # Get filename
     if "content-disposition" in response.headers:
         content_disposition = response.headers["content-disposition"]
         filename = content_disposition.split("filename=")[1]
