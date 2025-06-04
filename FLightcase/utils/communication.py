@@ -29,7 +29,7 @@ def download_file(url, download_location, username, password):
     """
 
     response = requests.get(url, params={'username': username, 'password': password})
-    if response.text == 'Nope.' or response.text == 'This file is not yet present.':
+    if response.text == 'Nope.' or response.text == 'This file is not yet present.':  # TODO adapt
         return False
     if "content-disposition" in response.headers:
         content_disposition = response.headers["content-disposition"]
