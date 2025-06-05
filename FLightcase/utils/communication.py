@@ -5,6 +5,7 @@ Functions related to communication between server and client
 import os
 import re
 import sys
+import time
 import pathlib
 import requests
 import pandas as pd
@@ -75,10 +76,15 @@ def upload_file(url_upload, local_path, username, password):
     with open(local_path, 'rb') as f:
         file_bytes = f.read()
     files = {'file': (os.path.basename(local_path), file_bytes)}
-    response = requests.post(os.path.join(url_upload, os.path.basename(local_path)), files=files,
-                             params={'username': username, 'password': password, 'file_size': os.path.getsize(local_path)})
-    if response.text != 'Upload successful!':
-        raise ValueError(f'Failed to upload file {os.path.basename(local_path)}. Message by server: {response.text}')
+
+    # Keep trying to upload (sometimes status code 500 returned by server)
+    response_text = ''
+    while response_text != 'Upload successful!':
+        response = requests.post(os.path.join(url_upload, os.path.basename(local_path)), files=files,
+                                 params={'username': username, 'password': password,
+                                         'file_size': os.path.getsize(local_path)})
+        response_text = response.text
+        time.sleep(1)
 
 
 def wait_for_file(file_path, moderator_download_folder_url, download_username, download_password, stop_with_stop_file=False):
@@ -92,19 +98,18 @@ def wait_for_file(file_path, moderator_download_folder_url, download_username, d
     :return: bool, is a stop file present? Indicates stopping FL.
     """
 
+    stop_training = False
+
     # Download the target file.
     # Note: Here, file completion does not need to be flagged as the path only exists after download
     file = os.path.basename(file_path)
     file_url = os.path.join(moderator_download_folder_url, file)
     workspace_receiver = os.path.dirname(file_path)
     while not download_file(file_url, workspace_receiver, download_username, download_password):
+        if download_file(os.path.join(moderator_download_folder_url, 'stop_training.txt'), workspace_receiver, download_username, download_password) and stop_with_stop_file:
+            stop_training = True
+            break
         pass
-    print(f'{file} successfully downloaded from moderator')
-
-    # Stop if a stop file is present
-    stop_training = False
-    if os.path.exists(os.path.join(workspace_receiver, 'stop_training.txt')) and stop_with_stop_file:
-        stop_training = True
 
     return stop_training
 
