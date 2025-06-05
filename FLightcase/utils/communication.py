@@ -75,7 +75,8 @@ def upload_file(url_upload, local_path, username, password):
     with open(local_path, 'rb') as f:
         file_bytes = f.read()
     files = {'file': (os.path.basename(local_path), file_bytes)}
-    response = requests.post(os.path.join(url_upload, os.path.basename(local_path)), files=files, params={'username': username, 'password': password})
+    response = requests.post(os.path.join(url_upload, os.path.basename(local_path)), files=files,
+                             params={'username': username, 'password': password, 'file_size': os.path.getsize(local_path)})
     if response.text != 'Upload successful!':
         raise ValueError(f'Failed to upload file {os.path.basename(local_path)}. Message by server: {response.text}')
 
