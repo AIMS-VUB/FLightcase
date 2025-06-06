@@ -22,7 +22,7 @@ def file_present_in_moderator_ws(url, username, password):
     return response.text != 'This file is not yet present.'
 
 
-def download_file(url, download_location, username, password):
+def download_file(url, download_location, username, password, download_if_exists=False):
     """
     Adapted from: https://realpython.com/python-download-file-from-url/
     Action: downloads.
@@ -53,10 +53,14 @@ def download_file(url, download_location, username, password):
     file_path_no_extension, ext = os.path.splitext(file_path)
 
     # Do not overwrite file if already exists. Add copy number.
-    copy_nr = 1
-    while os.path.exists(file_path):
-        file_path = f'{file_path_no_extension} ({copy_nr}){ext}'
-        copy_nr += 1
+    if download_if_exists:
+        copy_nr = 1
+        while os.path.exists(file_path):
+            file_path = f'{file_path_no_extension} ({copy_nr}){ext}'
+            copy_nr += 1
+    else:
+        if os.path.exists(file_path):
+            return True
 
     content = response.content
     if b'404 Not Found' in content:
