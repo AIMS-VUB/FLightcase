@@ -20,7 +20,7 @@ import pandas as pd
 import datetime as dt
 from FLightcase.utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
                                        get_model_param_info, import_net_architecture, copy_net)
-from FLightcase.utils.communication import clean_up_workspace, send_to_all_clients, collect_client_info
+from FLightcase.utils.communication import clean_up_workspace, upload_file, collect_client_info
 from FLightcase.utils.tracking import print_FL_plan, create_overall_loss_df, fl_duration_print_save
 from FLightcase.utils.results import update_avg_val_loss, calculate_overall_test_mae
 
@@ -52,18 +52,23 @@ def server(settings_path):
     workspace_path_server = settings_dict.get('workspace_path_server')          # Path to server workspace
     initial_state_dict_path = settings_dict.get('initial_state_dict_path')      # Path to initial state dict
     client_info_dict = settings_dict.get('client_credentials')                  # Initialise client info dict
+    moderator_url_dl = settings_dict.get('moderator_url_dl')                    # URL where to download from moderator
+    moderator_url_ul = settings_dict.get('moderator_url_ul')                    # URL where to upload to moderator
+    username_dl_ul = settings_dict.get('username_dl_ul')                        # Username for download and upload
+    password_dl_ul = settings_dict.get('password_dl_ul')                        # Password for download and upload
+
     client_names = client_info_dict.keys()
     FL_plan_path = os.path.join(workspace_path_server, 'FL_plan.json')
     architecture_path = os.path.join(workspace_path_server, 'architecture.py')
 
     # Wait for all clients to share their workspace path and dataset size
-    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'dataset_size', '.txt')
-    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'ws_path', '.txt')
+    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'dataset_size', '.txt', moderator_url_dl, username_dl_ul, password_dl_ul)
+    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'ws_path', '.txt', moderator_url_dl, username_dl_ul, password_dl_ul)
     n_sum_clients = sum([dct['dataset_size'] for dct in client_info_dict.values()])
 
     # Send to all clients: FL plan and network architecture
-    send_to_all_clients(client_info_dict, FL_plan_path, workspace_path_server)
-    send_to_all_clients(client_info_dict, architecture_path, workspace_path_server)
+    upload_file(moderator_url_ul, FL_plan_path, username_dl_ul, password_dl_ul)
+    upload_file(moderator_url_ul, architecture_path, username_dl_ul, password_dl_ul)
 
     # Extract and print FL plan
     with open(FL_plan_path, 'r') as json_file:
@@ -103,9 +108,9 @@ def server(settings_path):
         round_start_time = dt.datetime.now()
 
         # Send global model to all clients
-        send_to_all_clients(client_info_dict, model_path, workspace_path_server)
+        upload_file(moderator_url_ul, model_path, username_dl_ul, password_dl_ul)
         print('==> Model shared with all clients. Waiting for updated client models...')
-        client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'model', '.pt', fl_round, net_architecture)
+        client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'model', '.pt', moderator_url_dl, username_dl_ul, password_dl_ul, fl_round, net_architecture)
 
         # Create new global model by combining local models
         print('==> Combining local model weights and saving...')
@@ -126,7 +131,7 @@ def server(settings_path):
         val_loss_avg = 0
         print('==> Average validation loss tracking...')
         client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'train_results',
-                                               '.csv', fl_round)
+                                               '.csv', moderator_url_dl, username_dl_ul, password_dl_ul, fl_round)
         val_loss_avg = update_avg_val_loss(client_info_dict_sample, val_loss_avg, fl_round)
         print(f'     ==> val loss ref: {val_loss_ref} || val loss avg: {val_loss_avg}')
         avg_val_loss_clients.append(val_loss_avg)
@@ -142,7 +147,7 @@ def server(settings_path):
                 stop_txt_file_path = os.path.join(workspace_path_server, 'stop_training.txt')
                 with open(stop_txt_file_path, 'w') as txt_file:
                     txt_file.write('This file causes early FL stopping')
-                send_to_all_clients(client_info_dict, stop_txt_file_path, workspace_path_server)
+                upload_file(moderator_url_ul, stop_txt_file_path, username_dl_ul, password_dl_ul)
                 break
         print(f'     ==> lr stop counter: {counter_stop}')
 
@@ -167,11 +172,11 @@ def server(settings_path):
     print(f'==> Sending final model ({os.path.basename(best_model_path)}) to all clients...')
     with open(os.path.join(workspace_path_server, 'final_model.txt'), 'w') as txt_file:
         txt_file.write(best_model_path)
-    send_to_all_clients(client_info_dict, final_model_path, workspace_path_server)
+    upload_file(moderator_url_ul, final_model_path, username_dl_ul, password_dl_ul)
 
     # Calculate overall test MAE
     print('==> Calculate overall test MAE...')
-    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'test_results', '.csv')
+    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'test_results', '.csv', moderator_url_dl, username_dl_ul, password_dl_ul)
     calculate_overall_test_mae(client_info_dict, workspace_path_server, save=True)
 
     # Save client sample log
@@ -181,6 +186,12 @@ def server(settings_path):
     # Print and save total FL duration
     fl_stop_time = dt.datetime.now()
     fl_duration_print_save(fl_start_time, fl_stop_time, workspace_path_server)
+
+    # Send final message to moderator that allowed to clean up workspace entirely
+    moderator_clean_ws_file = os.path.join(workspace_path_server, 'moderator_clean_ws.txt')
+    with open(moderator_clean_ws_file, 'w') as samples_log:
+        samples_log.write('Prompt to clean workspace')
+    upload_file(moderator_url_ul, moderator_clean_ws_file, username_dl_ul, password_dl_ul)
 
     # Clean up workspace
     print('Cleaning up workspace...')

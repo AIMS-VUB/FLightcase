@@ -20,8 +20,8 @@ from FLightcase.utils.deep_learning.data import get_data_loader, split_data, pre
 from FLightcase.utils.deep_learning.model import get_weights, get_weighted_average_model, import_net_architecture, copy_net
 from FLightcase.utils.deep_learning.evaluation import evaluate
 from FLightcase.utils.deep_learning.general import get_device
-from FLightcase.utils.communication import (wait_for_file, send_file, clean_up_workspace, send_client_info_to_server,
-                                 send_test_df_to_server)
+from FLightcase.utils.communication import (wait_for_file, upload_file, clean_up_workspace, send_client_info_to_moderator,
+                                            send_test_df_to_moderator)
 from FLightcase.utils.results import create_test_true_pred_df, create_test_scatterplot, create_test_df_for_server
 from FLightcase.utils.deep_learning.train import train, get_criterion, get_optimizer
 
@@ -44,10 +44,10 @@ def client(settings_path):
         settings_dict = json.load(json_file)
     workspace_path_client = settings_dict.get('workspace_path_client')  # Path to client workspace
     client_name = settings_dict.get('client_name')                      # Client name
-    server_ip_address = settings_dict.get('server_ip_address')          # Server ip address
-    server_username = settings_dict.get('server_username')              # Server username
-    server_password = settings_dict.get('server_password')              # Server password
-    workspace_path_server = settings_dict.get('workspace_path_server')  # Path to server workspace
+    username_dl_ul = settings_dict.get('username_dl_ul')                # Username for download and upload
+    password_dl_ul = settings_dict.get('password_dl_ul')                # Password for download and upload
+    moderator_url_dl = settings_dict.get('moderator_url_dl')            # URL where to download from moderator
+    moderator_url_ul = settings_dict.get('moderator_url_ul')            # URL where to upload to moderator
     derivative_name = settings_dict.get('derivative_name')              # Name of derivative subfolder, else None
     modalities_dict = settings_dict.get('modalities_to_include')        # Modalities (e.g. {'anat': ['T1w', 'FLAIR']})
     colnames_dict = settings_dict.get('colnames_dict')                  # Colnames dict
@@ -66,18 +66,17 @@ def client(settings_path):
     df.to_csv(os.path.join(workspace_path_client, 'participants.tsv'), sep='\t')
 
     # Send dataset size and client workspace path to server
-    send_client_info_to_server(df.shape[0], workspace_path_client, client_name, server_ip_address, server_username,
-                               server_password, workspace_path_server)
+    send_client_info_to_moderator(df.shape[0], workspace_path_client, client_name, moderator_url_ul, username_dl_ul, password_dl_ul)
 
     # Wait for FL plan
     print('==> Waiting for FL plan...')
     FL_plan_path = os.path.join(workspace_path_client, 'FL_plan.json')
-    wait_for_file(FL_plan_path.replace('.json', '_transfer_completed.txt'))
+    wait_for_file(FL_plan_path, moderator_url_dl, username_dl_ul, password_dl_ul)
 
     # Wait for network architecture
     print('==> Waiting for network architecture...')
     architecture_path = os.path.join(workspace_path_client, 'architecture.py')
-    wait_for_file(architecture_path.replace('.py', '_transfer_completed.txt'))
+    wait_for_file(architecture_path, moderator_url_dl, username_dl_ul, password_dl_ul)
 
     # Extract FL plan
     with open(FL_plan_path, 'r') as json_file:
@@ -111,14 +110,11 @@ def client(settings_path):
         print('==> Waiting for global model to arrive...')
         if fl_round == 1:
             global_model_path = os.path.join(workspace_path_client, f'initial_model.pt')
-            global_txt_path = os.path.join(workspace_path_client, f'initial_model_transfer_completed.txt')
         else:
             # Load model from previous round as starting point (hence fl_round - 1)
             global_model_path = os.path.join(workspace_path_client, f'global_model_round_{fl_round-1}.pt')
-            global_txt_path = os.path.join(workspace_path_client,
-                                           f'global_model_round_{fl_round-1}_transfer_completed.txt')
 
-        stop_training = wait_for_file(global_txt_path, stop_with_stop_file=True)
+        stop_training = wait_for_file(global_model_path, moderator_url_dl, username_dl_ul, password_dl_ul, stop_with_stop_file=True)
         if stop_training:
             break
 
@@ -174,8 +170,7 @@ def client(settings_path):
         print('==> Send training results to server...')
         train_results_df_path = os.path.join(workspace_path_client, f'{client_name}_round_{fl_round}_train_results.csv')
         train_results_df.to_csv(train_results_df_path, index=False)
-        send_file(server_ip_address, server_username, server_password, train_results_df_path, workspace_path_client,
-                  workspace_path_server)
+        upload_file(moderator_url_ul, train_results_df_path, username_dl_ul, password_dl_ul)
 
         # Get local model
         if n_splits > 1:
@@ -187,8 +182,7 @@ def client(settings_path):
 
         # Send to server
         print('==> Send model to server ...')
-        send_file(server_ip_address, server_username, server_password, local_model_path, workspace_path_client,
-                  workspace_path_server)
+        upload_file(moderator_url_ul, local_model_path, username_dl_ul, password_dl_ul)
 
         # Perform actions based on min validation loss across splits and epochs
         print('==> Validation loss tracking...')
@@ -206,7 +200,7 @@ def client(settings_path):
     # Test final model
     print('==> Waiting for final model...')
     final_model_path = os.path.join(workspace_path_client, 'final_model.pt')
-    wait_for_file(final_model_path.replace('final_model.pt', 'final_model_transfer_completed.txt'))
+    wait_for_file(final_model_path, moderator_url_dl, username_dl_ul, password_dl_ul)
     print('==> Testing final model...')
     global_net = get_weights(net_architecture, final_model_path)
     test_loss, true_labels_test, pred_labels_test = evaluate(global_net, test_loader, criterion, device, 'test')
@@ -215,8 +209,7 @@ def client(settings_path):
     true_pred_test_df = create_test_true_pred_df(true_labels_test, pred_labels_test, workspace_path_client, save=True)
     create_test_scatterplot(true_pred_test_df, client_name, workspace_path_client)
     test_df_for_server = create_test_df_for_server(true_pred_test_df, test_loss)
-    send_test_df_to_server(test_df_for_server, client_name, workspace_path_client, server_username,
-                           server_password, server_ip_address, workspace_path_server)
+    send_test_df_to_moderator(test_df_for_server, client_name, workspace_path_client, moderator_url_ul, username_dl_ul, password_dl_ul)
 
     # Clean up workspace
     print('Cleaning up workspace...')
