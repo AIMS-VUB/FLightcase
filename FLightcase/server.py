@@ -187,15 +187,15 @@ def server(settings_path):
     fl_stop_time = dt.datetime.now()
     fl_duration_print_save(fl_start_time, fl_stop_time, workspace_path_server)
 
-    # Clean up workspace
-    print('Cleaning up workspace...')
-    clean_up_workspace(workspace_path_server, who='server')
-
     # Send final message to moderator that allowed to clean up workspace entirely
     moderator_clean_ws_file = os.path.join(workspace_path_server, 'moderator_clean_ws.txt')
     with open(moderator_clean_ws_file, 'w') as samples_log:
         samples_log.write('Prompt to clean workspace')
     upload_file(moderator_url_ul, moderator_clean_ws_file, username_dl_ul, password_dl_ul)
+
+    # Clean up workspace
+    print('Cleaning up workspace...')
+    clean_up_workspace(workspace_path_server, who='server')
 
 
 if __name__ == "__main__":
