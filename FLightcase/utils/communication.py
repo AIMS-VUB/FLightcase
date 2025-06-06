@@ -273,7 +273,7 @@ def clean_up_workspace(workspace_dir_path, who):
                 dest_file_path = os.path.join(date_time_folder_path, 'state_dicts', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
             # File that indicates moderator to clean workspace
-            elif file == 'moderator_clean_ws':
+            elif file == 'moderator_clean_ws.txt':
                 os.system(f'rm {src_file_path}')
         break
 
