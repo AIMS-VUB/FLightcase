@@ -20,7 +20,7 @@ import pandas as pd
 import datetime as dt
 from FLightcase.utils.deep_learning.model import (get_weights, weighted_avg_local_models, get_n_random_pairs_from_dict,
                                        get_model_param_info, import_net_architecture, copy_net)
-from FLightcase.utils.communication import clean_up_workspace, upload_file, collect_client_info
+from FLightcase.utils.communication import clean_up_workspace, upload_file, collect_client_info, get_rsa_key_pair
 from FLightcase.utils.tracking import print_FL_plan, create_overall_loss_df, fl_duration_print_save
 from FLightcase.utils.results import update_avg_val_loss, calculate_overall_test_mae
 
@@ -61,9 +61,19 @@ def server(settings_path):
     FL_plan_path = os.path.join(workspace_path_server, 'FL_plan.json')
     architecture_path = os.path.join(workspace_path_server, 'architecture.py')
 
-    # Wait for all clients to share their workspace path and dataset size
-    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'dataset_size', '.txt', moderator_url_dl, username_dl_ul, password_dl_ul)
-    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'ws_path', '.txt', moderator_url_dl, username_dl_ul, password_dl_ul)
+    # Share public RSA key with client
+    print('Sending public RSA key to clients...')
+    public_rsa_key_pem_server, private_rsa_key = get_rsa_key_pair()
+    public_rsa_key_server_path = os.path.join(workspace_path_server, f'public_rsa_key_server.txt')
+    with open(public_rsa_key_server_path, 'wb') as f:
+        f.write(public_rsa_key_pem_server)
+    upload_file(moderator_url_ul, public_rsa_key_server_path, username_dl_ul, password_dl_ul)
+
+    # Wait for all clients to share their decryption tools, workspace path and dataset size
+    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'aes_key', '.txt', moderator_url_dl, username_dl_ul, password_dl_ul)
+    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'iv', '.txt', moderator_url_dl, username_dl_ul, password_dl_ul)
+    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'dataset_size', '.txt', moderator_url_dl, username_dl_ul, password_dl_ul, private_rsa_key)
+    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'ws_path', '.txt', moderator_url_dl, username_dl_ul, password_dl_ul, private_rsa_key)
     n_sum_clients = sum([dct['dataset_size'] for dct in client_info_dict.values()])
 
     # Send to all clients: FL plan and network architecture
@@ -110,7 +120,7 @@ def server(settings_path):
         # Send global model to all clients
         upload_file(moderator_url_ul, model_path, username_dl_ul, password_dl_ul)
         print('==> Model shared with all clients. Waiting for updated client models...')
-        client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'model', '.pt', moderator_url_dl, username_dl_ul, password_dl_ul, fl_round, net_architecture)
+        client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'model', '.pt', moderator_url_dl, username_dl_ul, password_dl_ul, private_rsa_key, fl_round, net_architecture)
 
         # Create new global model by combining local models
         print('==> Combining local model weights and saving...')
@@ -131,7 +141,7 @@ def server(settings_path):
         val_loss_avg = 0
         print('==> Average validation loss tracking...')
         client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'train_results',
-                                               '.csv', moderator_url_dl, username_dl_ul, password_dl_ul, fl_round)
+                                               '.csv', moderator_url_dl, username_dl_ul, password_dl_ul, private_rsa_key, fl_round)
         val_loss_avg = update_avg_val_loss(client_info_dict_sample, val_loss_avg, fl_round)
         print(f'     ==> val loss ref: {val_loss_ref} || val loss avg: {val_loss_avg}')
         avg_val_loss_clients.append(val_loss_avg)
@@ -176,7 +186,7 @@ def server(settings_path):
 
     # Calculate overall test MAE
     print('==> Calculate overall test MAE...')
-    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'test_results', '.csv', moderator_url_dl, username_dl_ul, password_dl_ul)
+    client_info_dict = collect_client_info(client_info_dict, workspace_path_server, 'test_results', '.csv', moderator_url_dl, username_dl_ul, password_dl_ul, private_rsa_key)
     calculate_overall_test_mae(client_info_dict, workspace_path_server, save=True)
 
     # Save client sample log

@@ -10,6 +10,9 @@ import pathlib
 import requests
 import pandas as pd
 import datetime as dt
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 # Add path to parent dir of this Python file: https://stackoverflow.com/questions/3430372/
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 from deep_learning.model import get_weights
@@ -22,7 +25,7 @@ def file_present_in_moderator_ws(url, username, password):
     return response.text != 'This file is not yet present.'
 
 
-def download_file(url, download_location, username, password, download_if_exists=False):
+def download_file(url, download_location, username, password, download_if_exists=False, encrypted_aes_key=None, iv=None, private_rsa_key=None):
     """
     Adapted from: https://realpython.com/python-download-file-from-url/
     Action: downloads.
@@ -67,11 +70,16 @@ def download_file(url, download_location, username, password, download_if_exists
         return False
     else:
         with open(file_path, mode="wb") as file:
-            file.write(response.content)
+            content = response.content
+
+            # Decrypt if anticipated
+            if encrypted_aes_key is not None and iv is not None:
+                content = decrypt_message(content, encrypted_aes_key, iv, private_rsa_key)
+            file.write(content)
         return True
 
 
-def upload_file(url_upload, local_path, username, password):
+def upload_file(url_upload, local_path, username, password, aes_key=None, iv=None):
     """
     Sources:
     - https://stackoverflow.com/questions/68477/send-file-using-post-from-a-python-script
@@ -79,6 +87,9 @@ def upload_file(url_upload, local_path, username, password):
     """
     with open(local_path, 'rb') as f:
         file_bytes = f.read()
+    if aes_key is not None and iv is not None:
+        file_bytes = aes_encrypt(aes_key, file_bytes, iv)
+
     files = {'file': (os.path.basename(local_path), file_bytes)}
 
     # Keep trying to upload (sometimes status code 500 returned by server)
@@ -86,12 +97,12 @@ def upload_file(url_upload, local_path, username, password):
     while response_text != 'Upload successful!':
         response = requests.post(os.path.join(url_upload, os.path.basename(local_path)), files=files,
                                  params={'username': username, 'password': password,
-                                         'file_size': os.path.getsize(local_path)})
+                                         'file_size': len(file_bytes)})
         response_text = response.text
         time.sleep(1)
 
 
-def wait_for_file(file_path, moderator_download_folder_url, download_username, download_password, stop_with_stop_file=False):
+def wait_for_file(file_path, moderator_download_folder_url, download_username, download_password, aes_key=None, iv=None, private_rsa_key=None, stop_with_stop_file=False):
     """ This function waits for a file path to exist
 
     :param file_path: str, path to file
@@ -109,8 +120,8 @@ def wait_for_file(file_path, moderator_download_folder_url, download_username, d
     file = os.path.basename(file_path)
     file_url = os.path.join(moderator_download_folder_url, file)
     workspace_receiver = os.path.dirname(file_path)
-    while not download_file(file_url, workspace_receiver, download_username, download_password):
-        if download_file(os.path.join(moderator_download_folder_url, 'stop_training.txt'), workspace_receiver, download_username, download_password) and stop_with_stop_file:
+    while not download_file(file_url, workspace_receiver, download_username, download_password, encrypted_aes_key=aes_key, iv=iv, private_rsa_key=private_rsa_key):
+        if download_file(os.path.join(moderator_download_folder_url, 'stop_training.txt'), workspace_receiver, download_username, download_password, encrypted_aes_key=aes_key, iv=iv, private_rsa_key=private_rsa_key) and stop_with_stop_file:
             stop_training = True
             break
         pass
@@ -119,7 +130,7 @@ def wait_for_file(file_path, moderator_download_folder_url, download_username, d
 
 
 def collect_client_info(client_info_dict, workspace_path_server, info_type, file_ext, moderator_download_folder_url,
-                        download_username, download_password, fl_round=None, net_arch=None):
+                        download_username, download_password, server_private_rsa_key=None, fl_round=None, net_arch=None):
     """
     Collect workspace paths or dataset size from clients
 
@@ -147,12 +158,17 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
                                             f'{client_name}_round_{fl_round}_{info_type}{file_ext}')
         else:
             client_info_path = os.path.join(workspace_path_server, f'{client_name}_{info_type}{file_ext}')
-        wait_for_file(client_info_path, moderator_download_folder_url, download_username, download_password)
+
+        if info_type in ['aes_key', 'iv']:
+            wait_for_file(client_info_path, moderator_download_folder_url, download_username, download_password)
+        else:
+            wait_for_file(client_info_path, moderator_download_folder_url, download_username, download_password,
+                          client_info_dict[client_name]['aes_key'], client_info_dict[client_name]['iv'], server_private_rsa_key)
 
         # Define action based on file type
         suffix = pathlib.Path(client_info_path).suffix
         if suffix == '.txt':
-            with open(client_info_path, 'r') as file:
+            with open(client_info_path, 'rb') as file:
                 info = file.read()
                 if info_type == 'dataset_size':
                     info = int(info)
@@ -168,11 +184,10 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
             client_info_dict[client_name][f'round_{fl_round}'][info_type] = info
         else:
             client_info_dict[client_name][info_type] = info
-
     return client_info_dict
 
 
-def send_client_info_to_moderator(client_n, client_ws_path, client_name, url_upload, upload_username, upload_password):
+def send_client_info_to_moderator(client_n, client_ws_path, client_name, url_upload, upload_username, upload_password, aes_key, iv):
     """
     Send client information  to moderator
 
@@ -186,10 +201,10 @@ def send_client_info_to_moderator(client_n, client_ws_path, client_name, url_upl
         with open(info_txt_path, 'w') as file:
             file.write(str(info))
 
-        upload_file(url_upload, info_txt_path, upload_username, upload_password)
+        upload_file(url_upload, info_txt_path, upload_username, upload_password, aes_key, iv)
 
 
-def send_test_df_to_moderator(test_df_for_server, client_name, workspace_path_client, url_upload, upload_username, upload_password):
+def send_test_df_to_moderator(test_df_for_server, client_name, workspace_path_client, url_upload, upload_username, upload_password, aes_key, iv):
     """
     Send test dataframe to server
 
@@ -204,7 +219,7 @@ def send_test_df_to_moderator(test_df_for_server, client_name, workspace_path_cl
     print('==> Sending test results to server...')
     test_df_path = os.path.join(workspace_path_client, f'{client_name}_test_results.csv')
     test_df_for_server.to_csv(test_df_path, index=False)
-    upload_file(url_upload, test_df_path, upload_username, upload_password)
+    upload_file(url_upload, test_df_path, upload_username, upload_password, aes_key, iv)
 
 
 def clean_up_workspace(workspace_dir_path, who):
@@ -252,7 +267,8 @@ def clean_up_workspace(workspace_dir_path, who):
                 os.system(f'mv {src_file_path} {dest_file_path}')
             # Settings files
             elif any(file.endswith(ext) for ext in ['.json', 'ws_path.txt', 'dataset_size.txt', '.py',
-                                                    'stop_training.txt']):
+                                                    'stop_training.txt', 'aes_key.txt', 'iv.txt', 'public_rsa_key.txt',
+                                                    'public_rsa_key_server.txt']):
                 dest_file_path = os.path.join(date_time_folder_path, 'settings', file)
                 if file == f'FL_settings_{who}.json':
                     os.system(f'cp {src_file_path} {dest_file_path}')
@@ -288,3 +304,76 @@ def experiment_folder_in_path(path):
 
     return sum([bool(re.fullmatch('\A[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}h[0-9]{2}m[0-9]{2}s\Z', i))
                for i in path.split(os.sep)]) > 0
+
+
+# Cryptography
+# Functions based on the work of Manh Doan Quang
+# Note: AES necessary on top of RSA to encrypt larger files:
+# ==> https://stackoverflow.com/questions/65856980/python-rsa-message-encryption-plaintext-is-too-long
+# Keys
+def get_rsa_key_pair():
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_key = private_key.public_key()
+    public_key_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    # public_key_pem = public_key_pem.decode('utf-8')
+    return public_key_pem, private_key
+
+
+def generate_aes_key():
+    return os.urandom(32)  # AES-256 key
+
+
+def receive_public_key(public_key_pem):
+    # In original function by Manh: decode done before file transmission
+    return serialization.load_pem_public_key(public_key_pem.decode('utf-8').encode('utf-8'))
+
+
+# Encryption
+def rsa_encrypt(receiver_public_rsa_key, message):
+    # receiver_public_rsa_key = receiver_public_rsa_key.public_key()
+    encrypted_message = receiver_public_rsa_key.encrypt(
+        message,
+        padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+    )
+    return encrypted_message
+
+
+def aes_encrypt(aes_key, plaintext, iv):
+    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
+    encryptor = cipher.encryptor()
+    padded_plaintext = plaintext + b" " * (16 - len(plaintext) % 16)
+    ciphertext = encryptor.update(padded_plaintext) + encryptor.finalize()
+    return ciphertext
+
+
+# Decryption
+def decrypt_message(encrypted_message, encrypted_aes_key, iv, private_rsa_key):
+    encrypted_aes_key = bytes(encrypted_aes_key)
+    aes_key = rsa_decrypt(private_rsa_key, encrypted_aes_key)
+
+    # Decrypt the model update using AES
+    iv = bytes(iv)
+    ciphertext = bytes(encrypted_message)
+    decrypted_message = aes_decrypt(aes_key, iv, ciphertext)
+
+    # # Deserialize the binary data to reconstruct the model weights
+    # model_state_dict = pickle.loads(decrypted_update_str)
+
+    return decrypted_message
+
+
+def rsa_decrypt(private_key, encrypted_message):
+    return private_key.decrypt(
+        encrypted_message,
+        padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+    )
+
+
+def aes_decrypt(aes_key, iv, ciphertext):
+    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
+    decryptor = cipher.decryptor()
+    decrypted_data = decryptor.update(ciphertext) + decryptor.finalize()
+    return decrypted_data.strip()

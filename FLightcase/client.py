@@ -21,7 +21,8 @@ from FLightcase.utils.deep_learning.model import get_weights, get_weighted_avera
 from FLightcase.utils.deep_learning.evaluation import evaluate
 from FLightcase.utils.deep_learning.general import get_device
 from FLightcase.utils.communication import (wait_for_file, upload_file, clean_up_workspace, send_client_info_to_moderator,
-                                            send_test_df_to_moderator)
+                                            send_test_df_to_moderator, get_rsa_key_pair, generate_aes_key, rsa_encrypt,
+                                            receive_public_key)
 from FLightcase.utils.results import create_test_true_pred_df, create_test_scatterplot, create_test_df_for_server
 from FLightcase.utils.deep_learning.train import train, get_criterion, get_optimizer
 
@@ -42,6 +43,7 @@ def client(settings_path):
     # Extract settings
     with open(settings_path, 'r') as json_file:
         settings_dict = json.load(json_file)
+    print(settings_dict)
     workspace_path_client = settings_dict.get('workspace_path_client')  # Path to client workspace
     client_name = settings_dict.get('client_name')                      # Client name
     username_dl_ul = settings_dict.get('username_dl_ul')                # Username for download and upload
@@ -65,8 +67,33 @@ def client(settings_path):
                                                 modalities_dict, derivative_name)
     df.to_csv(os.path.join(workspace_path_client, 'participants.tsv'), sep='\t')
 
+    # Create IV for AES and send to moderator
+    print('Creating IV and sending to moderator...')
+    iv = os.urandom(16)
+    iv_path_client = os.path.join(workspace_path_client, f'{client_name}_iv.txt')
+    with open(iv_path_client, 'wb') as f:
+        f.write(iv)
+    upload_file(moderator_url_ul, iv_path_client, username_dl_ul, password_dl_ul)
+
+    # Wait for public RSA key from server
+    print('Waiting for public RSA key from server...')
+    public_rsa_key_server_path = os.path.join(workspace_path_client, f'public_rsa_key_server.txt')
+    wait_for_file(public_rsa_key_server_path, moderator_url_dl, username_dl_ul, password_dl_ul)
+    with open(public_rsa_key_server_path, 'rb') as f:
+        public_rsa_key_server = f.read()
+        public_rsa_key_server = receive_public_key(public_rsa_key_server)
+
+    # Create encrypted AES key and send to moderator
+    print('Creating encrypted AES key and sending to moderator...')
+    aes_key = generate_aes_key()
+    aes_key_encrypted_client = rsa_encrypt(public_rsa_key_server, aes_key)
+    aes_key_encrypted_client_path = os.path.join(workspace_path_client, f'{client_name}_aes_key.txt')
+    with open(aes_key_encrypted_client_path, 'wb') as f:
+        f.write(aes_key_encrypted_client)
+    upload_file(moderator_url_ul, aes_key_encrypted_client_path, username_dl_ul, password_dl_ul)
+
     # Send dataset size and client workspace path to server
-    send_client_info_to_moderator(df.shape[0], workspace_path_client, client_name, moderator_url_ul, username_dl_ul, password_dl_ul)
+    send_client_info_to_moderator(df.shape[0], workspace_path_client, client_name, moderator_url_ul, username_dl_ul, password_dl_ul, aes_key, iv)
 
     # Wait for FL plan
     print('==> Waiting for FL plan...')
@@ -170,7 +197,7 @@ def client(settings_path):
         print('==> Send training results to server...')
         train_results_df_path = os.path.join(workspace_path_client, f'{client_name}_round_{fl_round}_train_results.csv')
         train_results_df.to_csv(train_results_df_path, index=False)
-        upload_file(moderator_url_ul, train_results_df_path, username_dl_ul, password_dl_ul)
+        upload_file(moderator_url_ul, train_results_df_path, username_dl_ul, password_dl_ul, aes_key, iv)
 
         # Get local model
         if n_splits > 1:
@@ -182,7 +209,7 @@ def client(settings_path):
 
         # Send to server
         print('==> Send model to server ...')
-        upload_file(moderator_url_ul, local_model_path, username_dl_ul, password_dl_ul)
+        upload_file(moderator_url_ul, local_model_path, username_dl_ul, password_dl_ul, aes_key, iv)
 
         # Perform actions based on min validation loss across splits and epochs
         print('==> Validation loss tracking...')
@@ -209,7 +236,7 @@ def client(settings_path):
     true_pred_test_df = create_test_true_pred_df(true_labels_test, pred_labels_test, workspace_path_client, save=True)
     create_test_scatterplot(true_pred_test_df, client_name, workspace_path_client)
     test_df_for_server = create_test_df_for_server(true_pred_test_df, test_loss)
-    send_test_df_to_moderator(test_df_for_server, client_name, workspace_path_client, moderator_url_ul, username_dl_ul, password_dl_ul)
+    send_test_df_to_moderator(test_df_for_server, client_name, workspace_path_client, moderator_url_ul, username_dl_ul, password_dl_ul, aes_key, iv)
 
     # Clean up workspace
     print('Cleaning up workspace...')
