@@ -159,7 +159,7 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
         else:
             client_info_path = os.path.join(workspace_path_server, f'{client_name}_{info_type}{file_ext}')
 
-        if info_type in ['aes_key', 'iv']:
+        if info_type in ['aes_key', 'iv', 'public_rsa_key']:
             wait_for_file(client_info_path, moderator_download_folder_url, download_username, download_password)
         else:
             wait_for_file(client_info_path, moderator_download_folder_url, download_username, download_password,
@@ -172,6 +172,8 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
                 info = file.read()
                 if info_type == 'dataset_size':
                     info = int(info)
+                elif info_type == 'public_rsa_key':
+                    info = receive_public_key(info)
         elif suffix == '.csv':
             info = pd.read_csv(client_info_path)
         elif suffix == '.pt':
@@ -266,9 +268,10 @@ def clean_up_workspace(workspace_dir_path, who):
                 dest_file_path = os.path.join(date_time_folder_path, 'results', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
             # Settings files
-            elif any(file.endswith(ext) for ext in ['.json', 'ws_path.txt', 'dataset_size.txt', '.py',
+            elif (any(file.endswith(ext) for ext in ['.json', 'ws_path.txt', 'dataset_size.txt', '.py',
                                                     'stop_training.txt', 'aes_key.txt', 'iv.txt', 'public_rsa_key.txt',
-                                                    'public_rsa_key_server.txt']):
+                                                    'public_rsa_key_server.txt'])
+                  or (any(file.startswith(prefix) for prefix in ['server_aes_key_for', 'server_iv_for']))):
                 dest_file_path = os.path.join(date_time_folder_path, 'settings', file)
                 if file == f'FL_settings_{who}.json':
                     os.system(f'cp {src_file_path} {dest_file_path}')

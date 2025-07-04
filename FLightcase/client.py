@@ -67,6 +67,14 @@ def client(settings_path):
                                                 modalities_dict, derivative_name)
     df.to_csv(os.path.join(workspace_path_client, 'participants.tsv'), sep='\t')
 
+    # Create RSA keys and send public to moderator
+    print('Creating RSA keys and sending public to moderator...')
+    public_rsa_key_pem_client, private_rsa_key = get_rsa_key_pair()
+    public_rsa_key_client_path = os.path.join(workspace_path_client, f'{client_name}_public_rsa_key.txt')
+    with open(public_rsa_key_client_path, 'wb') as f:
+        f.write(public_rsa_key_pem_client)
+    upload_file(moderator_url_ul, public_rsa_key_client_path, username_dl_ul, password_dl_ul)
+
     # Create IV for AES and send to moderator
     print('Creating IV and sending to moderator...')
     iv = os.urandom(16)
@@ -94,6 +102,17 @@ def client(settings_path):
 
     # Send dataset size and client workspace path to server
     send_client_info_to_moderator(df.shape[0], workspace_path_client, client_name, moderator_url_ul, username_dl_ul, password_dl_ul, aes_key, iv)
+
+    # Wait for IV and AES key from server
+    print('Waiting for IV and AES key from server...')
+    iv_path = os.path.join(workspace_path_client, f'server_iv_for_{client_name}.txt')
+    wait_for_file(iv_path, moderator_url_dl, username_dl_ul, password_dl_ul)
+    with open(iv_path, 'rb') as f:
+        iv_server = f.read()
+    aes_key_path = os.path.join(workspace_path_client, f'server_aes_key_for_{client_name}.txt')
+    wait_for_file(aes_key_path, moderator_url_dl, username_dl_ul, password_dl_ul)
+    with open(aes_key_path, 'rb') as f:
+        aes_key_encrypted_server = f.read()
 
     # Wait for FL plan
     print('==> Waiting for FL plan...')
@@ -136,12 +155,12 @@ def client(settings_path):
         # Wait for global model to arrive
         print('==> Waiting for global model to arrive...')
         if fl_round == 1:
-            global_model_path = os.path.join(workspace_path_client, f'initial_model.pt')
+            global_model_path = os.path.join(workspace_path_client, f'initial_model_for_{client_name}.pt')
         else:
             # Load model from previous round as starting point (hence fl_round - 1)
-            global_model_path = os.path.join(workspace_path_client, f'global_model_round_{fl_round-1}.pt')
+            global_model_path = os.path.join(workspace_path_client, f'global_model_round_{fl_round-1}_for_{client_name}.pt')
 
-        stop_training = wait_for_file(global_model_path, moderator_url_dl, username_dl_ul, password_dl_ul, stop_with_stop_file=True)
+        stop_training = wait_for_file(global_model_path, moderator_url_dl, username_dl_ul, password_dl_ul, aes_key_encrypted_server, iv_server, private_rsa_key, stop_with_stop_file=True)
         if stop_training:
             break
 
@@ -226,8 +245,8 @@ def client(settings_path):
 
     # Test final model
     print('==> Waiting for final model...')
-    final_model_path = os.path.join(workspace_path_client, 'final_model.pt')
-    wait_for_file(final_model_path, moderator_url_dl, username_dl_ul, password_dl_ul)
+    final_model_path = os.path.join(workspace_path_client, f'final_model_for_{client_name}.pt')
+    wait_for_file(final_model_path, moderator_url_dl, username_dl_ul, password_dl_ul, aes_key_encrypted_server, iv_server, private_rsa_key)
     print('==> Testing final model...')
     global_net = get_weights(net_architecture, final_model_path)
     test_loss, true_labels_test, pred_labels_test = evaluate(global_net, test_loader, criterion, device, 'test')
