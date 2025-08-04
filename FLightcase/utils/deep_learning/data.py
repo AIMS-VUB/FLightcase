@@ -162,7 +162,7 @@ def create_path(path_items_dict):
     if session is not None:
         filename = f'{sub_id}_{session}_{filename_tag}'
         if derivative_name is not None:
-            path = os.path.join(bids_root_path, 'derivatives', derivative_name, sub_id, data_type, session, filename)
+            path = os.path.join(bids_root_path, 'derivatives', derivative_name, sub_id, session, data_type, filename)
         else:
             path = os.path.join(bids_root_path, sub_id, data_type, session, filename)
     else:
