@@ -21,9 +21,7 @@ def import_net_architecture(architecture_file_path):
     :param architecture_file_path: path to the architecture.py file
     :return: torch network (architecture)
     """
-    # NOTE: Do not use sys.path.append, as it often results in another "architecture.py" being read on the computer
-    # Use sys.path.insert(1, "/path/to/folder/") instead: https://stackoverflow.com/questions/4383571
-    sys.path.insert(1, os.path.dirname(architecture_file_path))
+    sys.path.append(os.path.dirname(architecture_file_path))
     from architecture import net_architecture
     return net_architecture
 

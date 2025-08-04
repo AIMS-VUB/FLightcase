@@ -5,132 +5,111 @@ Functions related to communication between server and client
 import os
 import re
 import sys
-import time
 import pathlib
-import requests
+import paramiko
 import pandas as pd
 import datetime as dt
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from scp import SCPClient
 # Add path to parent dir of this Python file: https://stackoverflow.com/questions/3430372/
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 from deep_learning.model import get_weights
 
 
-def file_present_in_moderator_ws(url, username, password):
-    # Send credentials in "params" attribute instead of "auth", as it did not work outside local environment
-    # "params" parsed with ".args" at server side
-    response = requests.get(url, params={'username': username, 'password': password})
-    return response.text != 'This file is not yet present.'
-
-
-def download_file(url, download_location, username, password, download_if_exists=False, encrypted_aes_key=None, iv=None, private_rsa_key=None):
+def createSSHClient(server, port, user, password):
     """
-    Adapted from: https://realpython.com/python-download-file-from-url/
-    Action: downloads.
-    returns: Boolean (downloaded?)
+    Create an SSH client to connect to server.
+    Note: terminology might be confusing as also used to connect from FL server to FL client
+    Function source: https://stackoverflow.com/questions/250283/how-to-scp-in-python
+
+    :param server: str, remote ip address (denoted as server)
+    :param port: int, port
+    :param user: str, remote username
+    :param password: str, password corresponding to remote username
+    :return: ssh client
+    """
+    client = paramiko.SSHClient()
+    client.load_system_host_keys()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(server, port, user, password)
+    return client
+
+
+def send_file(remote_ip_address, username, password, sender_file_path, workspace_path_sender, workspace_path_receiver):
+    """ Send file to remote
+
+    :param remote_ip_address: str, remote ip address
+    :param username: str, username of remote
+    :param password: str, password of remote
+    :param sender_file_path: str, path to local file to share
+    :param workspace_path_sender: str, path to sender workspace
+    :param workspace_path_receiver: str, path to receiver workspace
     """
 
-    response = requests.get(url, params={'username': username, 'password': password})
+    # Define paths
+    receiver_file_path = sender_file_path.replace(workspace_path_sender, workspace_path_receiver)
+    sender_txt_file_path = sender_file_path.replace(os.path.splitext(sender_file_path)[1], '_transfer_completed.txt')
+    receiver_txt_file_path = sender_txt_file_path.replace(workspace_path_sender, workspace_path_receiver)
 
-    # Check whether to proceed or not
-    if response.status_code != 200:
-        return False
-    elif response.text in ['The downloader is not recognized.',
-                           'The downloader is recognized, but the password is incorrect.',
-                           'The downloader did not provide credentials.',
-                           'This file is not yet present.']:
-        return False
+    # Prepare the txt file that marks the end of the file transfer
+    with open(sender_txt_file_path, 'w') as file:
+        file.write(f'The following file was succesfully transferred: {os.path.basename(sender_file_path)}')
 
-    # Get filename
-    if "content-disposition" in response.headers:
-        content_disposition = response.headers["content-disposition"]
-        filename = content_disposition.split("filename=")[1]
+    # Use "cp" command if local simulation
+    # Note: Due to persisting Exception when running locally on Mac:
+    # ==> "SSHException: Error reading SSH protocol banner"
+    if remote_ip_address == '127.0.0.1':
+        os.system(f'cp {sender_file_path} {receiver_file_path}')            # Send info to receiver
+        os.system(f'cp {sender_txt_file_path} {receiver_txt_file_path}')    # Completion marker
     else:
-        filename = url.split("/")[-1]
+        # Create ssh and scp client
+        # Source to fix issue "scp.SCPException: Timeout waiting for scp response":
+        # ==> https://github.com/ktbyers/netmiko/issues/1254
+        ssh = createSSHClient(remote_ip_address, 22, username, password)
+        scp = SCPClient(ssh.get_transport(), socket_timeout=60)
 
-    # Define file path
-    # Split filename source: https://stackoverflow.com/questions/541390/extracting-extension-from-filename
-    file_path = os.path.join(download_location, filename)
-    file_path_no_extension, ext = os.path.splitext(file_path)
-
-    # Do not overwrite file if already exists. Add copy number.
-    if download_if_exists:
-        copy_nr = 1
-        while os.path.exists(file_path):
-            file_path = f'{file_path_no_extension} ({copy_nr}){ext}'
-            copy_nr += 1
-    else:
-        if os.path.exists(file_path):
-            return True
-
-    content = response.content
-    if b'404 Not Found' in content:
-        return False
-    else:
-        with open(file_path, mode="wb") as file:
-            content = response.content
-
-            # Decrypt if anticipated
-            if encrypted_aes_key is not None and iv is not None:
-                content = decrypt_message(content, encrypted_aes_key, iv, private_rsa_key)
-            file.write(content)
-        return True
+        scp.put(sender_file_path, remote_path=receiver_file_path)           # Send info to receiver
+        scp.put(sender_txt_file_path, receiver_txt_file_path)               # Completion marker
 
 
-def upload_file(url_upload, local_path, username, password, aes_key=None, iv=None):
-    """
-    Sources:
-    - https://stackoverflow.com/questions/68477/send-file-using-post-from-a-python-script
-    - https://proxiesapi.com/articles/a-beginner-s-guide-to-uploading-files-with-python-requests
-    """
-    with open(local_path, 'rb') as f:
-        file_bytes = f.read()
-    if aes_key is not None and iv is not None:
-        file_bytes = aes_encrypt(aes_key, file_bytes, iv)
-
-    files = {'file': (os.path.basename(local_path), file_bytes)}
-
-    # Keep trying to upload (sometimes status code 500 returned by server)
-    response_text = ''
-    while response_text != 'Upload successful!':
-        response = requests.post(os.path.join(url_upload, os.path.basename(local_path)), files=files,
-                                 params={'username': username, 'password': password,
-                                         'file_size': len(file_bytes)})
-        response_text = response.text
-        time.sleep(1)
-
-
-def wait_for_file(file_path, moderator_download_folder_url, download_username, download_password, aes_key=None, iv=None, private_rsa_key=None, stop_with_stop_file=False):
+def wait_for_file(file_path, stop_with_stop_file = False):
     """ This function waits for a file path to exist
 
     :param file_path: str, path to file
-    :param moderator_download_folder_url: str, path to download folder of the moderator
-    :param download_username: str, remote username
-    :param download_password: str, password corresponding to remote username
     :param stop_with_stop_file: bool, stop when "stop_training.txt" is present in the same directory?
     :return: bool, is a stop file present? Indicates stopping FL.
     """
 
-    stop_training = False
-
-    # Download the target file.
-    # Note: Here, file completion does not need to be flagged as the path only exists after download
-    file = os.path.basename(file_path)
-    file_url = os.path.join(moderator_download_folder_url, file)
-    workspace_receiver = os.path.dirname(file_path)
-    while not download_file(file_url, workspace_receiver, download_username, download_password, encrypted_aes_key=aes_key, iv=iv, private_rsa_key=private_rsa_key):
-        if download_file(os.path.join(moderator_download_folder_url, 'stop_training.txt'), workspace_receiver, download_username, download_password, encrypted_aes_key=aes_key, iv=iv, private_rsa_key=private_rsa_key) and stop_with_stop_file:
-            stop_training = True
-            break
-        pass
-
-    return stop_training
+    stop_file_present = False
+    while not os.path.exists(file_path):
+        if os.path.exists(os.path.join(os.path.dirname(file_path), 'stop_training.txt')):
+            if stop_with_stop_file:
+                stop_file_present = True
+                break
+            else:
+                pass
+        else:
+            pass
+    return stop_file_present
 
 
-def collect_client_info(client_info_dict, workspace_path_server, info_type, file_ext, moderator_download_folder_url,
-                        download_username, download_password, server_private_rsa_key=None, fl_round=None, net_arch=None):
+def send_to_all_clients(client_info_dict, path_to_file, ws_path_server):
+    """
+    This function sends a file to all clients
+
+    :param client_info_dict: dict, k: client name, v: client information dict
+    """
+    file = os.path.basename(path_to_file)
+    print(f'==> Sending {file} to all clients...')
+    for client_name in client_info_dict.keys():
+        print(f'    ==> Sending to {client_name} ...')
+        ip_address = client_info_dict[client_name]['ip_address']
+        username = client_info_dict[client_name]['username']
+        password = client_info_dict[client_name]['password']
+        workspace_path = client_info_dict[client_name]['ws_path']
+        send_file(ip_address, username, password, path_to_file, ws_path_server, workspace_path)
+
+
+def collect_client_info(client_info_dict, workspace_path_server, info_type, file_ext, fl_round=None, net_arch=None):
     """
     Collect workspace paths or dataset size from clients
 
@@ -138,9 +117,6 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
     :param workspace_path_server: str, absolute path to server workspace
     :param info_type: str, which info to expect. Currently, supports 'dataset_size' or 'workspace_path'
     :param file_ext: str, file extension
-    :param moderator_download_folder_url: str, URL where to download files from moderator
-    :param download_username: str, remote username
-    :param download_password: str, password corresponding to remote username
     :param fl_round: int, federated learning round
     :param net_arch: torch model, network architecture. Will be updated with received state dict (.pt)
     :return: dict, enriched client information dict
@@ -158,22 +134,15 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
                                             f'{client_name}_round_{fl_round}_{info_type}{file_ext}')
         else:
             client_info_path = os.path.join(workspace_path_server, f'{client_name}_{info_type}{file_ext}')
-
-        if info_type in ['aes_key', 'iv', 'public_rsa_key']:
-            wait_for_file(client_info_path, moderator_download_folder_url, download_username, download_password)
-        else:
-            wait_for_file(client_info_path, moderator_download_folder_url, download_username, download_password,
-                          client_info_dict[client_name]['aes_key'], client_info_dict[client_name]['iv'], server_private_rsa_key)
+        suffix = pathlib.Path(client_info_path).suffix
+        wait_for_file(client_info_path.replace(suffix, '_transfer_completed.txt'))
 
         # Define action based on file type
-        suffix = pathlib.Path(client_info_path).suffix
         if suffix == '.txt':
-            with open(client_info_path, 'rb') as file:
+            with open(client_info_path, 'r') as file:
                 info = file.read()
                 if info_type == 'dataset_size':
                     info = int(info)
-                elif info_type == 'public_rsa_key':
-                    info = receive_public_key(info)
         elif suffix == '.csv':
             info = pd.read_csv(client_info_path)
         elif suffix == '.pt':
@@ -186,16 +155,22 @@ def collect_client_info(client_info_dict, workspace_path_server, info_type, file
             client_info_dict[client_name][f'round_{fl_round}'][info_type] = info
         else:
             client_info_dict[client_name][info_type] = info
+
     return client_info_dict
 
 
-def send_client_info_to_moderator(client_n, client_ws_path, client_name, url_upload, upload_username, upload_password, aes_key, iv):
+def send_client_info_to_server(client_n, client_ws_path, client_name, server_ip_address, server_username,
+                               server_password, server_ws_path):
     """
-    Send client information  to moderator
+    Send client information  to server
 
     :client_n: str, client dataset size
     :client_ws_path: str, path to client workspace
     :client_name: str, client name
+    :server_ip_address: str, server ip address
+    :server_username: str, server username
+    :server_password: str, server password
+    :server_ws_path: str, server workspace path
     """
     for tag, info in zip(['dataset_size', 'ws_path'], [client_n, client_ws_path]):
         print(f'==> Send {tag} to server...')
@@ -203,25 +178,28 @@ def send_client_info_to_moderator(client_n, client_ws_path, client_name, url_upl
         with open(info_txt_path, 'w') as file:
             file.write(str(info))
 
-        upload_file(url_upload, info_txt_path, upload_username, upload_password, aes_key, iv)
+        send_file(server_ip_address, server_username, server_password, info_txt_path, client_ws_path,
+                  server_ws_path)
 
 
-def send_test_df_to_moderator(test_df_for_server, client_name, workspace_path_client, url_upload, upload_username, upload_password, aes_key, iv):
+def send_test_df_to_server(test_df_for_server, client_name, workspace_path_client, server_username,
+                           server_password, server_ip_address, workspace_path_server):
     """
     Send test dataframe to server
 
     :client_name: str, client name
     :workspace_path_client: str, path to client workspace
-    :moderator_username: str, moderator username
-    :moderator_password: str, moderator password
-    :moderator_ip_address: str, moderator ip address
-    :workspace_path_moderator: str, moderator workspace path
+    :server_username: str, server username
+    :server_password: str, server password
+    :server_ip_address: str, server ip address
+    :workspace_path_server: str, server workspace path
     """
     # Send results to server
     print('==> Sending test results to server...')
     test_df_path = os.path.join(workspace_path_client, f'{client_name}_test_results.csv')
     test_df_for_server.to_csv(test_df_path, index=False)
-    upload_file(url_upload, test_df_path, upload_username, upload_password, aes_key, iv)
+    send_file(server_ip_address, server_username, server_password, test_df_path, workspace_path_client,
+              workspace_path_server)
 
 
 def clean_up_workspace(workspace_dir_path, who):
@@ -231,7 +209,8 @@ def clean_up_workspace(workspace_dir_path, who):
     :param workspace_dir_path: str, path to workspace directory
     :param who: str, "server" or "client". Defines whether client or server workspace.
     """
-    # Remove __pycache__
+    # Remove _transfer_completed.txt files and __pycache__
+    remove_transfer_completion_files(workspace_dir_path)
     pycache_path = os.path.join(workspace_dir_path, '__pycache__')
     if os.path.exists(pycache_path):
         os.system(f'rm -r {pycache_path}')
@@ -268,10 +247,8 @@ def clean_up_workspace(workspace_dir_path, who):
                 dest_file_path = os.path.join(date_time_folder_path, 'results', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
             # Settings files
-            elif (any(file.endswith(ext) for ext in ['.json', 'ws_path.txt', 'dataset_size.txt', '.py',
-                                                    'stop_training.txt', 'aes_key.txt', 'iv.txt', 'public_rsa_key.txt',
-                                                    'public_rsa_key_server.txt'])
-                  or (any(file.startswith(prefix) for prefix in ['server_aes_key_for', 'server_iv_for']))):
+            elif any(file.endswith(ext) for ext in ['.json', 'ws_path.txt', 'dataset_size.txt', '.py',
+                                                    'stop_training.txt']):
                 dest_file_path = os.path.join(date_time_folder_path, 'settings', file)
                 if file == f'FL_settings_{who}.json':
                     os.system(f'cp {src_file_path} {dest_file_path}')
@@ -291,9 +268,6 @@ def clean_up_workspace(workspace_dir_path, who):
             elif file.endswith('.pt'):
                 dest_file_path = os.path.join(date_time_folder_path, 'state_dicts', file)
                 os.system(f'mv {src_file_path} {dest_file_path}')
-            # File that indicates moderator to clean workspace
-            elif file == 'moderator_clean_ws.txt':
-                os.system(f'rm {src_file_path}')
         break
 
 
@@ -309,74 +283,16 @@ def experiment_folder_in_path(path):
                for i in path.split(os.sep)]) > 0
 
 
-# Cryptography
-# Functions based on the work of Manh Doan Quang
-# Note: AES necessary on top of RSA to encrypt larger files:
-# ==> https://stackoverflow.com/questions/65856980/python-rsa-message-encryption-plaintext-is-too-long
-# Keys
-def get_rsa_key_pair():
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    public_key = private_key.public_key()
-    public_key_pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    )
-    # public_key_pem = public_key_pem.decode('utf-8')
-    return public_key_pem, private_key
+def remove_transfer_completion_files(workspace_dir_path, print_tracking=False):
+    """
+    Remove files with '_transfer_completed.txt' suffix
 
-
-def generate_aes_key():
-    return os.urandom(32)  # AES-256 key
-
-
-def receive_public_key(public_key_pem):
-    # In original function by Manh: decode done before file transmission
-    return serialization.load_pem_public_key(public_key_pem.decode('utf-8').encode('utf-8'))
-
-
-# Encryption
-def rsa_encrypt(receiver_public_rsa_key, message):
-    # receiver_public_rsa_key = receiver_public_rsa_key.public_key()
-    encrypted_message = receiver_public_rsa_key.encrypt(
-        message,
-        padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-    )
-    return encrypted_message
-
-
-def aes_encrypt(aes_key, plaintext, iv):
-    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
-    encryptor = cipher.encryptor()
-    padded_plaintext = plaintext + b" " * (16 - len(plaintext) % 16)
-    ciphertext = encryptor.update(padded_plaintext) + encryptor.finalize()
-    return ciphertext
-
-
-# Decryption
-def decrypt_message(encrypted_message, encrypted_aes_key, iv, private_rsa_key):
-    encrypted_aes_key = bytes(encrypted_aes_key)
-    aes_key = rsa_decrypt(private_rsa_key, encrypted_aes_key)
-
-    # Decrypt the model update using AES
-    iv = bytes(iv)
-    ciphertext = bytes(encrypted_message)
-    decrypted_message = aes_decrypt(aes_key, iv, ciphertext)
-
-    # # Deserialize the binary data to reconstruct the model weights
-    # model_state_dict = pickle.loads(decrypted_update_str)
-
-    return decrypted_message
-
-
-def rsa_decrypt(private_key, encrypted_message):
-    return private_key.decrypt(
-        encrypted_message,
-        padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-    )
-
-
-def aes_decrypt(aes_key, iv, ciphertext):
-    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
-    decryptor = cipher.decryptor()
-    decrypted_data = decryptor.update(ciphertext) + decryptor.finalize()
-    return decrypted_data.strip()
+    :param workspace_dir_path: str, path to workspace directory
+    :param print_tracking: bool, track which files are removed?
+    """
+    for root, dirs, files in os.walk(workspace_dir_path):
+        for file in files:
+            if file.endswith('_transfer_completed.txt'):
+                if print_tracking:
+                    print(f'removing: {os.path.join(root, file)}')
+                os.remove(os.path.join(root, file))
