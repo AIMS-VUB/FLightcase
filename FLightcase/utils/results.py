@@ -51,17 +51,30 @@ def create_test_scatterplot(true_pred_test_df, client_name, workspace_path_clien
     :param client_name: str, client name
     :param workspace_path_client: str, path to client workspace
     """
-    # Create scatterplot (for client only)
-    test_mae = mean_absolute_error(true_pred_test_df['true'], true_pred_test_df['pred'])
-    r_true_pred, p_true_pred = stats.pearsonr(true_pred_test_df['true'], true_pred_test_df['pred'])
 
     fig, ax = plt.subplots()
-    ax.scatter(x=true_pred_test_df['true'], y=true_pred_test_df['pred'])
-    ax.set_title(
-        f'Test performance {client_name}:\nMAE: {test_mae:.2f}, r: {r_true_pred:.2f} (p: {p_true_pred:.3f})')
-    ax.set_xlabel('True')
-    ax.set_ylabel('Pred')
+    ax.scatter(x=true_pred_test_df['true'], y=true_pred_test_df['pred'], color='black')
+    x_y_lim_list = list(ax.get_xlim()) + list(ax.get_ylim())
+    min_x_y = min(x_y_lim_list)
+    max_x_y = max(x_y_lim_list)
+
+    # Plot x = y line
+    ax.plot((min_x_y, max_x_y), (min_x_y, max_x_y), color='grey', linestyle='--')
+    ax.set_xlabel('True', fontsize=14)
+    ax.set_ylabel('Pred', fontsize=14)
+    r_pearson, p_pearson = stats.pearsonr(true_pred_test_df['true'], true_pred_test_df['pred'])
+    mae = mean_absolute_error(true_pred_test_df['true'], true_pred_test_df['pred'])
+    ax.set_title(f'Test performance {client_name}:\n'
+                 f'MAE: {mae:.2f}, r: {r_pearson:.2f} ({pearson_p_to_text(p_pearson)})')
+    ax.set_aspect('equal')
     plt.savefig(os.path.join(workspace_path_client, f'scatterplot_true_pred_test_{client_name}.png'))
+
+
+def pearson_p_to_text(p):
+    if p < .001:
+        return 'p < .001'
+    else:
+        return f'p = {round(p, 3)}'
 
 
 def create_test_true_pred_df(true_labels_test, pred_labels_test, workspace_path_client, save=True):

@@ -21,7 +21,9 @@ def import_net_architecture(architecture_file_path):
     :param architecture_file_path: path to the architecture.py file
     :return: torch network (architecture)
     """
-    sys.path.append(os.path.dirname(architecture_file_path))
+    # NOTE: Do not use sys.path.append, as it often results in another "architecture.py" being read on the computer
+    # Use sys.path.insert(1, "/path/to/folder/") instead: https://stackoverflow.com/questions/4383571
+    sys.path.insert(1, os.path.dirname(architecture_file_path))
     from architecture import net_architecture
     return net_architecture
 
@@ -96,11 +98,27 @@ def get_weighted_average_model(model_error_dict):
     return weighted_avg_net
 
 
-def weighted_avg_local_models(client_info_dict_sample, fl_round):
-    """ Get weighted average of local models
+def aggregate_local_models(client_info_dict_sample, fl_round, agg_algorithm):
+    """ Get aggregate of local models
 
     :param client_info_dict_sample: dict, key: client name, value: client info
     :param fl_round: int, federated learning round
+    :param agg_algorithm: string, aggregation algorithm
+    :return: aggregate of local state dicts
+    """
+
+    if agg_algorithm in ['fedavg', 'fedavg_non-weighted']:
+        return avg_local_models(client_info_dict_sample, fl_round, agg_algorithm)
+    else:
+        raise ValueError('Aggregation algorithm not recognised')
+
+
+def avg_local_models(client_info_dict_sample, fl_round, agg_algorithm):
+    """ Get average of local models
+
+    :param client_info_dict_sample: dict, key: client name, value: client info
+    :param fl_round: int, federated learning round
+    :param agg_algorithm: string, aggregation algorithm
     :return: weighted average state dict of local state dicts
     """
 
@@ -114,7 +132,12 @@ def weighted_avg_local_models(client_info_dict_sample, fl_round):
         local_state_dict = client_info_dict_sample[client][f'round_{fl_round}']['model'].state_dict()
         n_client = client_info_dict_sample[client]['dataset_size']
         for key in state_dict_keys:
-            state_dict_contribution = (n_client * local_state_dict[key]) / n_sum
+            if agg_algorithm == 'fedavg':
+                state_dict_contribution = (n_client * local_state_dict[key]) / n_sum
+            elif agg_algorithm == 'fedavg_non-weighted':
+                state_dict_contribution = local_state_dict[key] / len(client_info_dict_sample)
+            else:
+                raise ValueError('Aggregation algorithm not recognised')
             if i == 0:
                 state_dict_avg[key] = state_dict_contribution
             else:

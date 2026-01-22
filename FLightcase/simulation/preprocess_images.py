@@ -27,7 +27,7 @@ def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_
     for root, dirs, files in os.walk(input_root_path):
         for file in files:
             # Do not process images in "derivatives" sub-folder of the BIDS tree
-            if file.endswith('_T1w.nii.gz') and f'{os.sep}derivatives{os.sep}' not in root:
+            if (file.endswith('_FLAIR.nii.gz') or file.endswith('_T1w.nii.gz')) and f'{os.sep}derivatives{os.sep}' not in root:
                 input_path = os.path.join(root, file)
                 output_path = input_path.replace(input_root_path, output_root_path + os.sep)
 
@@ -40,7 +40,6 @@ def preprocess_BIDS_dataset(input_root_path, output_root_path, skull_strip, use_
                     preprocess_t1w_image(input_path=input_path, output_path=output_path, use_gpu=use_gpu,
                                          skull_strip=skull_strip, BA_submodule_path=BA_submodule_path,
                                          output_resolution=output_resolution)
-                    break
 
 
 def preprocess_t1w_image(input_path, output_path, skull_strip, BA_submodule_path, use_gpu, output_resolution=None):

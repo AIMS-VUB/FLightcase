@@ -1,10 +1,10 @@
 {
     "workspace_path_client": "/path/to/client/workspace/repository",
     "client_name": "name_of_client_computer",
-    "server_ip_address": "127.0.0.1",
-    "server_username": "username_server_computer",
-    "server_password": "password_server_computer",
-    "workspace_path_server": "/path/to/server/workspace/repository",
+    "moderator_url_dl": "http://download/link",
+    "moderator_url_ul": "http://upload/link",
+    "username_dl_ul": "username_client_upload_download",
+    "password_dl_ul": "password_client_upload_download",
     "derivative_name": null,
     "modalities_to_include": {
         "anat": [
@@ -13,12 +13,11 @@
         ]
     },
     "colnames_dict": {
-        "id": "subject_id_BIDS",
-        "session": "session_BIDS",
+        "id": "participant_id",
+        "session": "session",
         "label": "label"
     },
     "subject_sessions": null,
     "bids_root_path": "/path/to/BIDS/root/directory/",
-    "batch_size": 8,
-    "device": "cuda:0"
+    "batch_size": 8
 }

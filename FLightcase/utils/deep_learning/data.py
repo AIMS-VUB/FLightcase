@@ -83,12 +83,14 @@ def prepare_participants_df(bids_root_path, colnames_dict, subject_sessions, mod
     df, path_cols = add_neuro_data_paths(df, modalities_dict, bids_root_path, colnames_dict, derivative_name)
     df = filter_on_data_availability(df, path_cols)
 
+    # Filter label
+    df = df[df[colnames_dict['label']].notna()]
+
     # Update colname_dict (k = v)
     for path_col in path_cols:
         colnames_dict[path_col] = path_col
 
     return df, colnames_dict
-
 
 def extract_subject_sessions(df, colnames_dict, subject_sessions):
     """
@@ -99,14 +101,16 @@ def extract_subject_sessions(df, colnames_dict, subject_sessions):
     :param subject_sessions: dict, key: subject_id (str), val: sessions (list)
     :return: pd DataFrame
     """
-    sub_df = pd.DataFrame()
+
+    df_filtered = pd.DataFrame()
     if subject_sessions is not None:
         for subject, sessions in subject_sessions.items():
-            df_subses = df[(df[colnames_dict['id'] == subject]) & (df[colnames_dict['session'].isin(sessions)])]
-            sub_df = pd.concat([sub_df, df_subses])
+            df_subses = df[df[colnames_dict['id']] == subject]
+            df_subses = df_subses[df_subses[colnames_dict['session']].isin(sessions)]
+            df_filtered = pd.concat([df_filtered, df_subses])
     else:
-        sub_df = df
-    return sub_df.reset_index(drop=True)
+        df_filtered = df
+    return df_filtered.reset_index(drop=True)
 
 
 def add_neuro_data_paths(df, modalities_dict, bids_root_path, colnames_dict, derivative_name):

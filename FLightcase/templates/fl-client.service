@@ -1,0 +1,38 @@
+# This script runs FLightcase as a background process with systemctl
+# Adapted from ChatGPT, 26/11/2025
+# Setup instructions:
+#   1. Create the following path: ~/.config/systemd/user/ and paste this file in it
+#   2. Adapt values in between curly brackets, and remove these as well
+#   3. Run "systemctl --user daemon-reload"
+# Operational instructions:
+#   - To start                  systemctl --user start fl-client
+#   - To check the status       systemctl --user status fl-client
+#   - To stop                   systemctl --user stop fl-client
+#   - To restart                systemctl --user restart fl-client
+#   - To track progress:
+#       + Option 1:             journalctl --user -fu fl-client
+#       + Option 2:             tail -f /path/to/stdout_stderr.log
+# Optional other commands:
+#   - Automatic start at boot   systemctl --user enable fl-client
+#   - Run without logging in    sudo loginctl enable-linger <your-username>
+
+Description=Federated Learning Client
+After=network-online.target
+ExecStart={/path/to/venv/bin/FLightcase} run-client --settings_path {/path/to/FL_settings_client.json}
+
+# Auto-restart on crash or exit
+#Restart=always
+#RestartSec=3
+
+# Set working directory
+WorkingDirectory={/path/to/FL/workspace/}
+
+# Logging. Note: "inherit" means that it will add its output to StandardOutput for convenience
+StandardOutput=append:{/path/to/FL/workspace/stdout_stderr.log}
+StandardError=inherit
+
+# Optional: environment variables
+# Environment="CUDA_VISIBLE_DEVICES=0"
+
+[Install]
+WantedBy=default.target

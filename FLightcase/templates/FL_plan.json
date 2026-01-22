@@ -11,5 +11,6 @@
     "n_clients_set": 2,
     "n_splits": 1,
     "criterion": "l1loss",
-    "optimizer": "adam"
+    "optimizer": "adam",
+    "agg_algorithm": "fedavg"
 }
