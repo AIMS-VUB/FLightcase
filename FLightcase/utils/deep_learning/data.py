@@ -107,7 +107,7 @@ def extract_subject_sessions(df, colnames_dict, subject_sessions):
     if subject_sessions is not None:
         if isinstance(subject_sessions[0], tuple):  # Assume tuple is subject and session
             for subject, sessions in subject_sessions.items():
-                df_subses = df[(df[colnames_dict['id'] == subject]) & (df[colnames_dict['session'].isin(sessions)])]
+                df_subses = df[(df[colnames_dict['id']] == subject) & (df[colnames_dict['session'].isin(sessions)])]
                 sub_df = pd.concat([sub_df, df_subses])
         else:
             for subject in subject_sessions:
