@@ -95,7 +95,7 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
             loss.backward()
 
             # Extend ID list
-            id_list_train.extend(subject_id.tolist())
+            id_list_train.extend(list(subject_id))
 
             # Extend lists with true and predicted label
             train_pred_label_list.extend(pred_label.tolist())

@@ -37,7 +37,7 @@ def evaluate(net, data_loader, criterion, device, eval_type, print_message=False
 
             # Extend lists and sum variables to allow calculation of mean loss
             # pred_label_list.extend((np.e**pred_label).argmax(dim=1).tolist())
-            id_list.extend(subject_id.tolist())
+            id_list.extend(list(subject_id))
             pred_label_list.extend(pred_label.reshape(1, -1)[0].tolist())
             true_label_list.extend(label.reshape(1, -1)[0].tolist())
             loss_sum += criterion(pred_label, label).detach().item()
