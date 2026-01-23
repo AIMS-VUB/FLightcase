@@ -67,6 +67,7 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
     n_worse_epochs = 0
     best_model = None
     best_model_path = None
+    id_list_train = []
     train_loss_list = []
     val_loss_list = []
 
@@ -80,7 +81,7 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
         # Set model to training mode and send to GPU
         net.train().to(device)
 
-        for neuro_data_list, label in tqdm(train_loader):
+        for neuro_data_list, label, subject_id in tqdm(train_loader):
             # Send label to device. Send other data to device when passing to net
             label = label.to(device)
 
@@ -92,6 +93,9 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
             pred_label = torch.squeeze(pred_label, dim=1)                   # Remove one dim to match label dim
             loss = criterion(pred_label, label)
             loss.backward()
+
+            # Extend ID list
+            id_list_train.extend(subject_id.tolist())
 
             # Extend lists with true and predicted label
             train_pred_label_list.extend(pred_label.tolist())
@@ -111,7 +115,7 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
         train_mae = mean_absolute_error(train_true_label_list, train_pred_label_list)
 
         # Validation
-        val_loss, val_true_label_list, val_pred_label_list = evaluate(net, val_loader, criterion, device, 'validation')
+        val_loss, val_true_label_list, val_pred_label_list, id_list_val = evaluate(net, val_loader, criterion, device, 'validation')
         val_mae = mean_absolute_error(val_true_label_list, val_pred_label_list)
         if scheduler is not None:
             scheduler.step(val_loss)
@@ -151,4 +155,4 @@ def train(n_epochs, device, train_loader, val_loader, optimizer, net, criterion,
     if save_best_sd:
         torch.save(best_model.state_dict(), best_model_path)
 
-    return best_model, best_loss, train_loss_list, val_loss_list
+    return best_model, best_loss, train_loss_list, val_loss_list, id_list_train, id_list_val

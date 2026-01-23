@@ -21,12 +21,13 @@ def evaluate(net, data_loader, criterion, device, eval_type, print_message=False
     # Initializations and set device
     loss_sum = 0
     samples_count = 0
+    id_list = []
     true_label_list = []
     pred_label_list = []
 
     with torch.no_grad():
         net.eval().to(device)
-        for neuro_data_list, label in tqdm(data_loader):
+        for neuro_data_list, label, subject_id in tqdm(data_loader):
             # Send label to device. Send other data to device when passing to net
             label = label.to(device)
 
@@ -36,6 +37,7 @@ def evaluate(net, data_loader, criterion, device, eval_type, print_message=False
 
             # Extend lists and sum variables to allow calculation of mean loss
             # pred_label_list.extend((np.e**pred_label).argmax(dim=1).tolist())
+            id_list.extend(subject_id.tolist())
             pred_label_list.extend(pred_label.reshape(1, -1)[0].tolist())
             true_label_list.extend(label.reshape(1, -1)[0].tolist())
             loss_sum += criterion(pred_label, label).detach().item()
@@ -45,4 +47,4 @@ def evaluate(net, data_loader, criterion, device, eval_type, print_message=False
         if print_message:
             print(f'{eval_type}: loss: {loss_mean}')
 
-        return loss_mean, true_label_list, pred_label_list
+        return loss_mean, true_label_list, pred_label_list, id_list

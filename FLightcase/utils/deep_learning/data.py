@@ -20,6 +20,7 @@ class DataSet(Dataset):
 
         self.df = df
         self.colname_label = colnames_dict['label']
+        self.colname_id = colnames_dict['id']
         path_colnames = []
         for k, v in colnames_dict.items():
             if k not in ['label', 'id', 'session']:
@@ -44,7 +45,10 @@ class DataSet(Dataset):
         label = row[self.colname_label]
         label = torch.tensor(label, dtype=torch.float)
 
-        return neuro_data_list, label
+        # Also keep track of subject id
+        subject_id = row[self.colname_id]
+
+        return neuro_data_list, label, subject_id
 
 
 def prep_neuro_data(neuro_data_path, path_colname):
@@ -101,9 +105,15 @@ def extract_subject_sessions(df, colnames_dict, subject_sessions):
     """
     sub_df = pd.DataFrame()
     if subject_sessions is not None:
-        for subject, sessions in subject_sessions.items():
-            df_subses = df[(df[colnames_dict['id'] == subject]) & (df[colnames_dict['session'].isin(sessions)])]
-            sub_df = pd.concat([sub_df, df_subses])
+        if isinstance(subject_sessions[0], tuple):  # Assume tuple is subject and session
+            for subject, sessions in subject_sessions.items():
+                df_subses = df[(df[colnames_dict['id'] == subject]) & (df[colnames_dict['session'].isin(sessions)])]
+                sub_df = pd.concat([sub_df, df_subses])
+        else:
+            for subject in subject_sessions:
+                df_subses = df[df[colnames_dict['id']] == subject]
+                sub_df = pd.concat([sub_df, df_subses])
+
     else:
         sub_df = df
     return sub_df.reset_index(drop=True)

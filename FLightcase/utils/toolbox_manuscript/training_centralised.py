@@ -63,6 +63,8 @@ def train_centralised(settings_path):
     n_epochs = settings_dict.get('n_epochs')                            # Number of epochs
     patience_stop = int(settings_dict.get('pat_stop'))                  # N epochs stagnating val loss before stopping
     n_splits = int(settings_dict.get('n_splits'))                       # N Train/Val splits
+    train_subjects = settings_dict.get('train_subjects')                # Get train subjects
+    val_subjects = settings_dict.get('val_subjects')                    # Get val subjects
     test_subjects = settings_dict.get('test_subjects')                  # Get test subjects
 
     # Preprocess participants dataframe + save to workspace path as reference
@@ -73,7 +75,12 @@ def train_centralised(settings_path):
     # Split data with same test set as federated experiment
     test_df = df[df[colnames_dict['id']].isin(test_subjects)]
     test_loader, n_test = get_data_loader(test_df, 'test', colnames_dict, batch_size, return_n=True)
-    train_overall_df = df[~df[colnames_dict['id']].isin(test_subjects)]
+    if train_subjects is not None and val_subjects is not None:
+        train_df = df[df[colnames_dict['id']].isin(train_subjects)]
+        val_df = df[df[colnames_dict['id']].isin(val_subjects)]
+        train_overall_df = df[df[colnames_dict['id']].isin(train_subjects + val_subjects)]
+    else:
+        train_overall_df = df[~df[colnames_dict['id']].isin(test_subjects)]
     train_val_ids = train_overall_df[colnames_dict['id']]
 
     # General deep learning settings
@@ -106,15 +113,19 @@ def train_centralised(settings_path):
         for split_i, random_state in enumerate(random_states):
             print(f'==> Split {split_i}/{n_splits} (split random state = {random_state})')
             # Split data
-            train_ids, val_ids = train_test_split(train_val_ids, random_state=random_state,
-                                                  test_size=val_fraction / (train_fraction + val_fraction))
-            train_df = df[df[colnames_dict.get('id')].isin(train_ids)][list(colnames_dict.values())]
-            val_df = df[df[colnames_dict.get('id')].isin(val_ids)][list(colnames_dict.values())]
+            if train_subjects is None and val_subjects is None:
+                train_ids, val_ids = train_test_split(train_val_ids, random_state=random_state,
+                                                      test_size=val_fraction / (train_fraction + val_fraction))
+                train_df = df[df[colnames_dict.get('id')].isin(train_ids)][list(colnames_dict.values())]
+                val_df = df[df[colnames_dict.get('id')].isin(val_ids)][list(colnames_dict.values())]
 
             # Save dataframes
             if epoch == 1 and split_i == 0:  # fl_round starts from 1
                 train_overall_df.to_csv(os.path.join(workspace_path, 'train_overall_df.tsv'), sep='\t',
                                         index=False)
+                if train_subjects is not None and val_subjects is not None:
+                    train_df.to_csv(os.path.join(workspace_path, 'train_df.tsv'), sep='\t', index=False)
+                    val_df.to_csv(os.path.join(workspace_path, 'val_df.tsv'), sep='\t', index=False)
                 test_df.to_csv(os.path.join(workspace_path, 'test_df.tsv'), sep='\t', index=False)
 
             # Create data loaders
@@ -123,7 +134,7 @@ def train_centralised(settings_path):
 
             # Train
             print('==> Start training...')
-            split_model, best_val_loss, train_loss_list, val_loss_list = train(
+            split_model, best_val_loss, train_loss_list, val_loss_list, id_list_train, id_list_val = train(
                 1, device, train_loader, val_loader, optimizer, net, criterion, None,
                 False, None
             )
@@ -170,15 +181,16 @@ def train_centralised(settings_path):
             if counter_stop == patience_stop:
                 print(f'Stopping early at epoch {epoch}...')
                 break
+        print(f'     ==> stop counter: {counter_stop}')
         print(f'     ==> lr reduction counter: {counter_lr_red}')
 
     # Test
     print('Testing...')
-    test_loss, true_labels_test, pred_labels_test = evaluate(best_net, test_loader, criterion, device, 'test')
+    test_loss, true_labels_test, pred_labels_test, id_list_test = evaluate(best_net, test_loader, criterion, device, 'test')
     torch.save(best_net.state_dict(), os.path.join(workspace_path, 'final_model.pt'))
 
     # Test result analysis
-    true_pred_test_df = create_test_true_pred_df(true_labels_test, pred_labels_test, workspace_path, save=True)
+    true_pred_test_df = create_test_true_pred_df(id_list_test, true_labels_test, pred_labels_test, workspace_path, save=True)
     create_test_scatterplot(true_pred_test_df, 'centralised', workspace_path)
     with open(os.path.join(workspace_path, 'test_results.csv'), 'w') as f:
         f.write(f'MAE: {mean_absolute_error(true_labels_test, pred_labels_test)}\n'

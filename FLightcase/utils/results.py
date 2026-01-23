@@ -64,16 +64,17 @@ def create_test_scatterplot(true_pred_test_df, client_name, workspace_path_clien
     plt.savefig(os.path.join(workspace_path_client, f'scatterplot_true_pred_test_{client_name}.png'))
 
 
-def create_test_true_pred_df(true_labels_test, pred_labels_test, workspace_path_client, save=True):
+def create_test_true_pred_df(id_list, true_labels_test, pred_labels_test, workspace_path_client, save=True):
     """ Create dataframe containing true and predicted test results
 
+    :param id_list: subject ids
     :param true_labels_test: list, true labels
     :param pred_labels_test: list, predicted labels
     :param workspace_path_client: str, path to client workspace
     :param save: bool, save dataframe?
     """
     # Save predictions and ground truth to workspace
-    true_pred_test_df = pd.DataFrame({'true': true_labels_test, 'pred': pred_labels_test})
+    true_pred_test_df = pd.DataFrame({'subject_id': id_list, 'true': true_labels_test, 'pred': pred_labels_test})
     if save:
         true_pred_test_df.to_csv(os.path.join(workspace_path_client, f'true_pred_test.csv'))
 
