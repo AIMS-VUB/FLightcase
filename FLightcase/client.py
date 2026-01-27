@@ -16,7 +16,7 @@ import torch
 import argparse
 import paramiko
 import pandas as pd
-from FLightcase.utils.deep_learning.data import get_data_loader, split_data, prepare_participants_df, extract_subject_sessions
+from FLightcase.utils.deep_learning.data import get_data_loader, split_data, prepare_participants_df
 from FLightcase.utils.deep_learning.model import get_weights, get_weighted_average_model, import_net_architecture, copy_net
 from FLightcase.utils.deep_learning.evaluation import evaluate
 from FLightcase.utils.deep_learning.general import get_device
@@ -52,9 +52,6 @@ def client(settings_path):
     modalities_dict = settings_dict.get('modalities_to_include')        # Modalities (e.g. {'anat': ['T1w', 'FLAIR']})
     colnames_dict = settings_dict.get('colnames_dict')                  # Colnames dict
     subject_sessions = settings_dict.get('subject_sessions')            # Which subject ids to take into account
-    subj_sess_train = settings_dict.get('subject_sessions_train')       # Which subject ids for train
-    subj_sess_val = settings_dict.get('subject_sessions_val')           # Which subject ids for val
-    subj_sess_test = settings_dict.get('subject_sessions_test')         # Which subject ids for test
     bids_root_path = settings_dict.get('bids_root_path')                # Path to BIDS root
     batch_size = int(settings_dict.get('batch_size'))                   # Batch size
     device = get_device(settings_dict.get('device'))                    # Device for DL process (cpu, cuda, cuda:0, ...)
@@ -141,18 +138,14 @@ def client(settings_path):
             print(f'==> Split {split_i}, random state {random_state}...')
             # Split data
             # Note: Fix train_test_random_state to assure test data is always the same
-            if (subj_sess_train is not None and subj_sess_val is not None and subj_sess_test is not None and
-                    fl_round == 1 and split_i == 0):
-                train_df = extract_subject_sessions(df, colnames_dict, subj_sess_train)
-                train_df.to_csv(os.path.join(workspace_path_client, 'train_df.tsv'), sep='\t', index=False)
-                val_df = extract_subject_sessions(df, colnames_dict, subj_sess_val)
-                val_df.to_csv(os.path.join(workspace_path_client, 'val_df.tsv'), sep='\t', index=False)
-                test_df = extract_subject_sessions(df, colnames_dict, subj_sess_test)
-                # test_df saved later on
-            else:
-                train_df, val_df, test_df = split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction,
-                                                       train_test_random_state=42, train_val_random_state=random_state)
+            train_df, val_df, test_df = split_data(df, colnames_dict, train_fraction, val_fraction, test_fraction,
+                                                   train_test_random_state=42, train_val_random_state=random_state)
 
+            # Save all train and validation dataframes
+            train_df.to_csv(os.path.join(workspace_path_client, f'train_df_rs_{random_state}.tsv'), sep='\t', index=False)
+            val_df.to_csv(os.path.join(workspace_path_client, f'val_df_rs_{random_state}.tsv'), sep='\t', index=False)
+
+            # Save overall train df and test df only once
             if fl_round == 1 and split_i == 0:  # fl_round starts from 1
                 train_overall_df = pd.concat([train_df, val_df], ignore_index=True)
                 train_overall_df.to_csv(os.path.join(workspace_path_client, 'train_overall_df.tsv'), sep='\t',
