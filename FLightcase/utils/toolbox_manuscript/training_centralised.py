@@ -117,7 +117,7 @@ def train_centralised(settings_path):
     best_net = None             # Best net initialisation
     split_to_select = 0         # Initialise split to select
 
-    for epoch in range(n_epochs + 1):  # Start counting from 1
+    for epoch in range(1, n_epochs + 1):  # Start counting from 1
         print(f'Epoch {epoch}/{n_epochs}...')
 
         # Deep learning settings per epoch
