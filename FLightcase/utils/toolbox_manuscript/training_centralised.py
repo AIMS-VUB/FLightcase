@@ -84,7 +84,7 @@ def train_centralised(settings_path):
 
     # Add train / val splits untill n_epochs
     train_and_val_ids = list(train_splits.values())[0] + list(val_splits.values())[0]
-    n_splits_to_add = n_epochs - len(train_splits)
+    n_splits_to_add = (n_epochs * n_splits) - len(train_splits)
     train_splits_add = {}
     val_splits_add = {}
     if n_splits_to_add > 0:
