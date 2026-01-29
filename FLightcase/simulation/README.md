@@ -101,6 +101,6 @@ If desired, a loss figure can be created by running the following command (assum
 ***
 
 ## References
-[1] Denissen, Stijn, Jorne Laton, Matthias Grothe, Manuela Vaneckova, Tomáš Uher, Matěj Kudrna, Dana Horáková et al. "Real-world federated learning for the brain imaging scientist." medRxiv (2023): 2023-04.
+[1] Denissen, S., Laton, J., Grothe, M., Vaneckova, M., Uher, T., Kudrna, M., ... & Nagels, G. (2023). Real-world federated learning for the brain imaging scientist. medRxiv, 2023-04.
 
 [2] Wood, D. A., Kafiabadi, S., Al Busaidi, A., Guilhem, E., Montvila, A., Lynch, J., ... & Booth, T. C. (2022). Accurate brain‐age models for routine clinical MRI examinations. Neuroimage, 249, 118871.
