@@ -25,7 +25,7 @@ I would recommend installing miniconda. Click [this link](https://docs.conda.io/
 
 ## How to get started?
 ### Clone this GitHub repository
-```git clone https://github.com/AIMS-VUB/FLightcase.git```
+```git clone -b FL_POC https://github.com/AIMS-VUB/FLightcase.git```
 
 ### Change directory to the GitHub repository
 ```cd FLightcase```
@@ -63,7 +63,7 @@ Note: only one virtual environment needs to be created, which can be used by all
 2. ```source .FLightcase_venv/bin/activate```
 3. Install FLightcase. There are 2 options:
    - Building FLightcase from this GitHub repository: ```pip3 install -r requirements.txt```
-   - Downloading and installing via [PyPI](https://pypi.org/project/FLightcase/): ```pip3 install FLightcase==0.1.5``` (Adapt version number if desired)
+   - Downloading and installing via [PyPI](https://pypi.org/project/FLightcase/): ```pip3 install FLightcase==0.1.17``` (Adapt version number if desired)
 
 ### Prepare workspaces
 For this, we refer to the eponymous header in the README in the parent directory.
