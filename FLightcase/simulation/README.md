@@ -1,9 +1,8 @@
 # FLightcase simulation
-:construction::wrench: Under construction :wrench::construction:
 
 This subdirectory contains a local federated learning (FL) simulation using FLightcase, 
 fine-tuning a convolutional neural network (CNN) on healthy control MRI data from [OpenNeuro](https://openneuro.org/).
-The simulation consists of 1 server node and 3 client nodes, in analogy to the real-world example in [this preprint](https://www.medrxiv.org/content/10.1101/2023.04.22.23288741v1) [1].
+The simulation consists of 1 server node and 3 client nodes, in analogy to the real-world example in [this preprint](https://www.medrxiv.org/content/10.1101/2023.04.22.23288741v2) [1].
 Each node is represented by a separate FL workspace, a separate directory.
 
 | client name | OpenNeuro dataset                                                  | n_subjects | n_sessions_per_subject |
@@ -102,6 +101,6 @@ If desired, a loss figure can be created by running the following command (assum
 ***
 
 ## References
-[1] Denissen, S., Grothe, M., Vaneckova, M., Uher, T., Laton, J., Kudrna, M., ... & Nagels, G. (2023). Transfer learning on structural brain age models to decode cognition in MS: a federated learning approach. medRxiv, 2023-04.
+[1] Denissen, Stijn, Jorne Laton, Matthias Grothe, Manuela Vaneckova, Tomáš Uher, Matěj Kudrna, Dana Horáková et al. "Real-world federated learning for the brain imaging scientist." medRxiv (2023): 2023-04.
 
 [2] Wood, D. A., Kafiabadi, S., Al Busaidi, A., Guilhem, E., Montvila, A., Lynch, J., ... & Booth, T. C. (2022). Accurate brain‐age models for routine clinical MRI examinations. Neuroimage, 249, 118871.
