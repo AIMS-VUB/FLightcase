@@ -1,0 +1,7 @@
+monai==1.4.0
+HD-BET==2.0
+# Antspyx: Version number might be deleted as antspyx history often deleted in PyPI. Then try with latest version.
+# For both antspyx and HD-BET: maybe install from git with commit number? e.g.:
+# - git+https://github.com/MIC-DKFZ/HD-BET.git@678e44d546a84de0f2a7fc245f176b82b7d912fd
+# - git+https://github.com/ANTsX/ANTsPy.git@5d5463897f46f57e974a7b79020151b3d4c9772d
+antspyx==0.5.4

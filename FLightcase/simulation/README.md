@@ -37,14 +37,22 @@ Get the contents of the BrainAge submodule ([MIDIconsortium "BrainAge" GitHub re
 
 Note: Click [this link](https://git-scm.com/book/en/v2/Git-Tools-Submodules) for more info about this process.
 
-### Download and preprocess the data
+### Download the data
 The data will be available in an "inputs" folder within the "simulation" folder
 1. Navigate in the terminal to the "simulation" subfolder: ```cd FLightcase/simulation/```
 2. ```conda env create --file environment.yml``` (creates conda environment "FLightcase_sim_data_prep")
-3. ```conda activate FLightcase_sim_data_prep``` (activates "FLightcase_sim_data_prep" environment)
-4. ```bash prepare_data.sh``` (downloads and preprocesses data (pipeline by Wood et al. 2022 [2]))
+3. ```conda activate FLightcase_sim_data_download``` (activates "FLightcase_sim_data_prep" environment)
+4. ```bash download_data.sh``` (downloads data via AWS)
 5. ```conda deactivate``` (deactivates conda environment)
-6. Return to parent "FLightcase" directory: ```cd ../..```
+
+### Preprocess the data
+This will create derivative folders inside the dataset directories, containing preprocessed data by the pipeline by Wood et al. 2022 [2].
+1. ```python3 -m venv .venv_preprocessing``` (Create a virtual environment for preprocessing)
+2. ```source .venv_preprocessing/bin/activate``` (Activate the virtual environment)
+3. ```pip3 install -r preprocessing_requirements.txt``` (Install dependencies)
+4. ```bash preprocess_data.sh``` (Preprocess the data)
+5. ```deactivate``` (Deactivate virtual environment)
+6. ```cd ../..``` (Return to parent "FLightcase" directory)
 
 #### Note:
 On 9 January 2025, we obtained permission by the authors of the image preprocessing pipeline [2] to include an adapted version of the [pre_process.py file](https://github.com/MIDIconsortium/BrainAge/blob/main/pre_process.py) from their [GitHub repository](https://github.com/MIDIconsortium/BrainAge) (also included in this simulation as submodule) in ours.
@@ -76,7 +84,6 @@ For this, we refer to the eponymous header in the README in the parent directory
   - The names listed in the table above can be used.
   - As this is a local simulation, please choose "127.0.0.1" as the ip address for each node (server and clients).
   - As all data sets did not specify a session, remove the "session" key from the settings JSON per client
-
 ***
 
 ## Running FLightcase

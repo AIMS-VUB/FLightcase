@@ -132,3 +132,4 @@ dmypy.json
 .idea/
 FLightcase/simulation/inputs/
 .FLightcase_venv/
+FLightcase/simulation/.venv_preprocessing/
