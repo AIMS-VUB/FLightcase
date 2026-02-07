@@ -10,8 +10,8 @@ import pathlib
 import requests
 import pandas as pd
 import datetime as dt
-from requests import Session
 from requests.adapters import HTTPAdapter, Retry
+from requests.auth import HTTPBasicAuth
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -28,7 +28,8 @@ def file_present_in_moderator_ws(url, username, password):
     return response.text != 'This file is not yet present.'
 
 
-def download_file(url, download_location, username, password, download_if_exists=False, encrypted_aes_key=None, iv=None, private_rsa_key=None):
+def download_file(url: str, save_path: str, username: str, password: str, encrypted_aes_key=None, iv=None,
+                  private_rsa_key=None, poll_interval: float = 1.0):
     """
     Adapted from: https://realpython.com/python-download-file-from-url/
     Additional source:
@@ -37,66 +38,66 @@ def download_file(url, download_location, username, password, download_if_exists
     Action: downloads.
     returns: Boolean (downloaded?)
     """
+    session = create_session()
 
-    s = create_http_session()
-    server_responded = False
-    while not server_responded:
-        try:
-            response = s.get(url, params={'username': username, 'password': password}, timeout=(10, 10), stream=True)
-            server_responded = True
-        except requests.exceptions.ConnectTimeout as err:
-            print(f'Trying again after following exception: {err}')
-            time.sleep(1)
-        except requests.exceptions.ConnectionError as err:
-            print(f'Trying again after following exception: {err}')
-            time.sleep(1)
+    while True:  # Infinite loop
+        response = session.get(
+            url,
+            auth=HTTPBasicAuth(username, password),
+            stream=True,
+            timeout=30,
+        )
 
-    # Check whether to proceed or not
-    if response.status_code != 200:
-        return False
-    elif response.text in ['The downloader is not recognized.',
-                           'The downloader is recognized, but the password is incorrect.',
-                           'The downloader did not provide credentials.',
-                           'This file is not yet present.']:
-        return False
+        if response.status_code == 404:
+            time.sleep(poll_interval)
+            continue
 
-    # Get filename
-    if "content-disposition" in response.headers:
-        content_disposition = response.headers["content-disposition"]
-        filename = content_disposition.split("filename=")[1]
-    else:
-        filename = url.split("/")[-1]
+        if response.status_code == 200:
 
-    # Define file path
-    # Split filename source: https://stackoverflow.com/questions/541390/extracting-extension-from-filename
-    file_path = os.path.join(download_location, filename)
-    file_path_no_extension, ext = os.path.splitext(file_path)
+            tmp_save_path = save_path + ".tmp"
 
-    # Do not overwrite file if already exists. Add copy number.
-    if download_if_exists:
-        copy_nr = 1
-        while os.path.exists(file_path):
-            file_path = f'{file_path_no_extension} ({copy_nr}){ext}'
-            copy_nr += 1
-    else:
-        if os.path.exists(file_path):
+            # Step 1: download encrypted or plain file
+            with open(tmp_save_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        f.write(chunk)
+
+            # Step 2: decrypt if needed
+            if encrypted_aes_key is None and iv is None and private_rsa_key is None:
+
+                # no decryption needed → just rename
+                os.replace(tmp_save_path, save_path)
+
+            elif encrypted_aes_key is not None and iv is not None and private_rsa_key is not None:
+
+                # read encrypted
+                with open(tmp_save_path, "rb") as f:
+                    encrypted_bytes = f.read()
+
+                decrypted_bytes = decrypt_message(
+                    encrypted_bytes,
+                    encrypted_aes_key,
+                    iv,
+                    private_rsa_key
+                )
+
+                # overwrite temp file with decrypted
+                with open(tmp_save_path, "wb") as f:
+                    f.write(decrypted_bytes)
+
+                # atomic replace
+                os.replace(tmp_save_path, save_path)
+
+            else:
+                os.remove(tmp_save_path)
+                raise ValueError("Decryption parameters incomplete")
+
             return True
 
-    content = response.content
-    if b'404 Not Found' in content:
-        return False
-    else:
-        with open(file_path, mode="wb") as file:
-            content = response.content
-
-            # Decrypt if anticipated
-            if encrypted_aes_key is not None and iv is not None and not url.endswith('stop_training.txt'):
-                content = decrypt_message(content, encrypted_aes_key, iv, private_rsa_key)
-            file.write(content)
-        return True
+        response.raise_for_status()
 
 
-def upload_file(url_upload, local_path, username, password, aes_key=None, iv=None):
+def upload_file(url_upload: str, local_path: str, username: str, password: str, aes_key=None, iv=None, timeout: int = 300):
     """
     Sources:
     - https://stackoverflow.com/questions/68477/send-file-using-post-from-a-python-script
@@ -108,62 +109,110 @@ def upload_file(url_upload, local_path, username, password, aes_key=None, iv=Non
     if aes_key is not None and iv is not None:
         file_bytes = aes_encrypt(aes_key, file_bytes, iv)
 
-    files = {'file': (os.path.basename(local_path), file_bytes)}
+    session = create_session()
 
-    # Keep trying to upload (sometimes status code 500 returned by server)
-    response_text = ''
-    while response_text != 'Upload successful!':
-        s = create_http_session()
-        with s.post(os.path.join(url_upload, os.path.basename(local_path)), files=files,
-                                 params={'username': username, 'password': password,
-                                         'file_size': len(file_bytes)}, stream=True, timeout=(10, 10)) as response:
-            response.raise_for_status()
-            response_text = response.text
-        time.sleep(1)
+    response = session.post(
+        os.path.join(url_upload, os.path.basename(local_path)),
+        files={"file": file_bytes},
+        auth=HTTPBasicAuth(username, password),
+        timeout=timeout
+    )
+
+    response.raise_for_status()
+    return True
 
 
-def create_http_session():
+def create_session():
     # Sources:
     # - https://stackoverflow.com/questions/15778466/using-python-requests-sessions-cookies-and-post
     # - https://github.com/psf/requests/blob/main/docs/user/advanced.rst#example-automatic-retries
     # - https://stackoverflow.com/questions/15431044/can-i-set-max-retries-for-requests-request
-    s = Session()
+    # - ChatGPT
+
+    session = requests.Session()
     retries = Retry(
         total=5,
-        backoff_factor=0.1,
+        backoff_factor=0.5,
         status_forcelist=[500, 502, 503, 504],
-        allowed_methods={'POST', 'GET'},
+        allowed_methods=["GET", "POST"],
     )
-    s.mount('http://', HTTPAdapter(max_retries=retries))
-    return s
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
 
 
-def wait_for_file(file_path, moderator_download_folder_url, download_username, download_password, aes_key=None, iv=None, private_rsa_key=None, stop_with_stop_file=False):
-    """ This function waits for a file path to exist
+def wait_for_file(file_path: str, download_url_base: str, username: str, password: str, aes_key=None, iv=None,
+                  private_rsa_key=None, stop_with_stop_file: bool = False, poll_interval: float = 1.0,
+                  timeout: float = None) -> bool:
+    """
+    Wait until a file becomes available on the moderator server and download it.
+    Supports optional stop file detection and encryption parameters.
+    Sources: ChatGPT
 
-    :param file_path: str, path to file
-    :param moderator_download_folder_url: str, path to download folder of the moderator
-    :param download_username: str, remote username
-    :param download_password: str, password corresponding to remote username
-    :param stop_with_stop_file: bool, stop when "stop_training.txt" is present in the same directory?
-    :return: bool, is a stop file present? Indicates stopping FL.
+    Parameters
+    ----------
+    file_path : str. Local full path where the file should be saved.
+    download_url_base : str. Base URL of moderator download folder.
+    username : str. HTTP basic auth username.
+    password : str. HTTP basic auth password.
+    aes_key : bytes, optional. AES key for decryption.
+    iv : bytes, optional. AES IV for decryption.
+    private_rsa_key : RSA key, optional. RSA private key for AES key decryption.
+    stop_with_stop_file : bool, default False. If True, abort when "stop_training.txt" is detected.
+    poll_interval : float, default 1.0. Seconds between retry attempts.
+    timeout : float, optional. Maximum seconds to wait. None = wait forever.
+
+    Returns
+    -------
+    bool
+        True  → stop file detected (caller should stop training)
+        False → requested file successfully downloaded
     """
 
-    stop_training = False
+    filename = os.path.basename(file_path)
+    file_url = os.path.join(download_url_base, filename)
+    stop_url = os.path.join(download_url_base, "stop_training.txt")
+    stop_path = os.path.join(os.path.dirname(file_path), "stop_training.txt")
 
-    # Download the target file.
-    # Note: Here, file completion does not need to be flagged as the path only exists after download
-    file = os.path.basename(file_path)
-    file_url = os.path.join(moderator_download_folder_url, file)
-    workspace_receiver = os.path.dirname(file_path)
-    while not download_file(file_url, workspace_receiver, download_username, download_password, encrypted_aes_key=aes_key, iv=iv, private_rsa_key=private_rsa_key):
-        if download_file(os.path.join(moderator_download_folder_url, 'stop_training.txt'), workspace_receiver, download_username, download_password, encrypted_aes_key=aes_key, iv=iv, private_rsa_key=private_rsa_key) and stop_with_stop_file:
-            stop_training = True
-            break
-        pass
-        time.sleep(1)
+    start_time = time.time()
 
-    return stop_training
+    while True:
+
+        # Try to download target file
+        success = download_file(
+            url=file_url,
+            save_path=file_path,
+            username=username,
+            password=password,
+            encrypted_aes_key=aes_key,
+            iv=iv,
+            private_rsa_key=private_rsa_key,
+        )
+
+        if success:
+            return False  # File downloaded successfully
+
+        # Check stop file if enabled
+        if stop_with_stop_file:
+            stop_success = download_file(
+                url=stop_url,
+                save_path=stop_path,
+                username=username,
+                password=password,
+                encrypted_aes_key=aes_key,
+                iv=iv,
+                private_rsa_key=private_rsa_key,
+            )
+
+            if stop_success:
+                return True  # Stop requested
+
+        # Check timeout
+        if timeout is not None and (time.time() - start_time) > timeout:
+            raise TimeoutError(f"Timeout waiting for file: {filename}")
+
+        time.sleep(poll_interval)
 
 
 def collect_client_info(client_info_dict, workspace_path_server, info_type, file_ext, moderator_download_folder_url,
