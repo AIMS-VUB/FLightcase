@@ -6,12 +6,6 @@
     "username_dl_ul": "username_client_upload_download",
     "password_dl_ul": "password_client_upload_download",
     "derivative_name": null,
-    "modalities_to_include": {
-        "anat": [
-            "T1w.nii.gz",
-            "FLAIR.nii.gz"
-        ]
-    },
     "colnames_dict": {
         "id": "participant_id",
         "session": "session",

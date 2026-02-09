@@ -12,5 +12,11 @@
     "n_splits": 1,
     "criterion": "l1loss",
     "optimizer": "adam",
-    "agg_algorithm": "fedavg"
+    "agg_algorithm": "fedavg",
+    "modalities_to_include": {
+        "anat": [
+            "T1w.nii.gz",
+            "FLAIR.nii.gz"
+        ]
+    }
 }
