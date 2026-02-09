@@ -15,6 +15,7 @@
 # Optional other commands:
 #   - Automatic start at boot   systemctl --user enable fl-client
 #   - Run without logging in    sudo loginctl enable-linger <your-username>
+#   - Reset if status "failed"  systemctl --user reset-failed
 
 Description=Federated Learning Client
 After=network-online.target
