@@ -29,7 +29,7 @@ def file_present_in_moderator_ws(url, username, password):
 
 
 def download_file(url: str, save_path: str, username: str, password: str, encrypted_aes_key=None, iv=None,
-                  private_rsa_key=None, poll_interval: float = 1.0):
+                  private_rsa_key=None, stop_with_stop_file=False, poll_interval: float = 1.0):
     """
     Adapted from: https://realpython.com/python-download-file-from-url/
     Additional source:
@@ -49,6 +49,15 @@ def download_file(url: str, save_path: str, username: str, password: str, encryp
         )
 
         if response.status_code == 404:
+            if stop_with_stop_file:
+                stop_response = session.get(
+                    url.replace(os.path.basename(url), 'stop_training.txt'),
+                    auth=HTTPBasicAuth(username, password),
+                    stream=True,
+                    timeout=30,
+                )
+                if stop_response.status_code == 200:
+                    return 'stop file present'
             time.sleep(poll_interval)
             continue
 
@@ -92,7 +101,7 @@ def download_file(url: str, save_path: str, username: str, password: str, encryp
                 os.remove(tmp_save_path)
                 raise ValueError("Decryption parameters incomplete")
 
-            return True
+            return 'download successful'
 
         response.raise_for_status()
 
@@ -172,15 +181,13 @@ def wait_for_file(file_path: str, download_url_base: str, username: str, passwor
 
     filename = os.path.basename(file_path)
     file_url = os.path.join(download_url_base, filename)
-    stop_url = os.path.join(download_url_base, "stop_training.txt")
-    stop_path = os.path.join(os.path.dirname(file_path), "stop_training.txt")
 
     start_time = time.time()
 
     while True:
 
         # Try to download target file
-        success = download_file(
+        download_response = download_file(
             url=file_url,
             save_path=file_path,
             username=username,
@@ -188,25 +195,13 @@ def wait_for_file(file_path: str, download_url_base: str, username: str, passwor
             encrypted_aes_key=aes_key,
             iv=iv,
             private_rsa_key=private_rsa_key,
+            stop_with_stop_file=stop_with_stop_file
         )
 
-        if success:
+        if download_response == 'download successful':
             return False  # File downloaded successfully
-
-        # Check stop file if enabled
-        if stop_with_stop_file:
-            stop_success = download_file(
-                url=stop_url,
-                save_path=stop_path,
-                username=username,
-                password=password,
-                encrypted_aes_key=aes_key,
-                iv=iv,
-                private_rsa_key=private_rsa_key,
-            )
-
-            if stop_success:
-                return True  # Stop requested
+        elif download_response == 'stop file present':
+            return True  # Stop file detected
 
         # Check timeout
         if timeout is not None and (time.time() - start_time) > timeout:
